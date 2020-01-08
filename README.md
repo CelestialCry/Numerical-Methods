@@ -1,6 +1,6 @@
 # Numerical Methods
 
-First lecture of the course MA2501 held on NTNU
+_Ikke dropp ut på grunn av NumMet_ -skytmeg 2020
 
 ## General Principles of computational mathematics
 
