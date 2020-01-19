@@ -1,1 +1,5 @@
-# ????
+# map()
+
+#filter()
+
+#functools.reduce()
