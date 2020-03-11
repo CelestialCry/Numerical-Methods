@@ -37,8 +37,8 @@ class Plottable():
     def __init__(self, function = lambda x: 0):
         self.function = function
 
-    def plot(self, start, end):
-        xs = np.linspace(start, end)
+    def plot(self, start, end, step = 50):
+        xs = np.linspace(start, end, step)
         ys = list(map(lambda x: self.function(x), xs))
 
         plt.figure()
@@ -60,11 +60,30 @@ class Lagrange(Plottable):
     def sep(self):
         return [p["x"] for p in self.points], [p["y"] for p in self.points] 
 
-    def plot(self, start = None, end = None):
+    def plot(self, start = None, end = None, step = 50):
         if start == None or end == None:
-            super().plot(self.min_dom, self.min_dom)
+            super().plot(self.min_dom, self.max_dom, step)
         else:
-            super().plot(start, end)
+            super().plot(start, end, step)
 
-pol = Lagrange([Point(-1,1), Point(1,1), Point(0,0)])
-print(jacobian(pol.function)(3.0))
+def equiNode(start, end, step, f = (lambda x: 0)):
+    xs = np.linspace(start, end, step)
+    ys = map(f, xs)
+    return [Point(x,y) for (x,y) in zip(xs,ys)]
+
+# Er det noe galt her? Hvorfor er ikke mengden med punkter symmetrisk
+# Andreas påpekte at den er off-center, fiks senerer
+def chebyNode(start, end, steps, f = lambda x: 0):
+    xs = map(lambda x: (end-start)/2*(np.cos(np.pi*(2*x+1)/(2*steps)))+(end+start)/2, range(steps))
+    ys = map(f, xs)
+    return [Point(x,y) for (x,y) in zip(xs, ys)]
+
+def runge(x):
+    return 1/(x**2+1)
+
+
+p = Lagrange(chebyNode(-5,5,11,runge))
+p.plot()
+
+r = Plottable(runge)
+r.plot(-5,5)
