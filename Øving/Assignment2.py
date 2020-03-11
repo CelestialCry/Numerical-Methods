@@ -1,3 +1,8 @@
+import matplotlib.pyplot as plt
+import autograd.numpy as np
+from autograd import jacobian, grad
+from functools import reduce, partial
+
 class Point:
 
     __slots__ = ["x", "y"]
@@ -24,16 +29,42 @@ class Point:
             return self.y
         else:
             raise IndexError(f"{place} is out of range")
+
+class Plottable():
     
-class Lagrange():
+    __slots__ = ["function"]
 
-    __slots__ = ["polynomial", "points"]
+    def __init__(self, function = lambda x: 0):
+        self.function = function
 
+    def plot(self, start, end):
+        xs = np.linspace(start, end)
+        ys = list(map(lambda x: self.function(x), xs))
+
+        plt.figure()
+        plt.plot(xs, ys)
+        plt.show()
+    
+class Lagrange(Plottable):
+
+    __slots__ = ["points", "max_dom", "min_dom"]
+
+    #Merkelig nok virker denne dritten med autograd!
     def __init__(self, plist):
         self.points = plist
         xs, ys = self.sep()
+        self.max_dom, self.min_dom = max(xs), min(xs)
+        λj = lambda xj, ls, x: reduce(lambda a,b: a*b, map(partial(lambda y, yj, arg: (y-arg)/(yj-arg), x, xj), ls))
+        self.function = lambda x: sum([ys[i]*partial(λj, xs[i], xs[0:i] + xs[i+1:len(xs)])(x) for i in range(len(xs))])
 
     def sep(self):
-        return [p["x"] for p in self.points], [p["y"] for p in points]
+        return [p["x"] for p in self.points], [p["y"] for p in self.points] 
 
-print([Point(2,3)])
+    def plot(self, start = None, end = None):
+        if start == None or end == None:
+            super().plot(self.min_dom, self.min_dom)
+        else:
+            super().plot(start, end)
+
+pol = Lagrange([Point(-1,1), Point(1,1), Point(0,0)])
+print(jacobian(pol.function)(3.0))
