@@ -4,7 +4,6 @@ from autograd import jacobian, grad
 from functools import reduce, partial
 
 class Point:
-
     __slots__ = ["x", "y"]
 
     def __init__(self, x = 0, y = 0):
@@ -31,23 +30,24 @@ class Point:
             raise IndexError(f"{place} is out of range")
 
 class Plottable():
+    __slots__ = ["function", "max_dom", "min_dom"]
+
+    def __init__(self, function = lambda x: 0, ma = 0, mi = 1):
+        self.function, self.max_dom, self.min_dom = function, ma, mi
     
-    __slots__ = ["function"]
+    def plot(self, start = None, end = None, step = 50):
+        if start == None or end == None:
+            xs = np.linspace(self.min_dom, self.max_dom, step)
+            ys = list(map(self.function, xs))
+        else:
+            xs = np.linspace(start, end, step)
+            ys = list(map(self.function, xs))
 
-    def __init__(self, function = lambda x: 0):
-        self.function = function
-
-    def plot(self, start, end, step = 50):
-        xs = np.linspace(start, end, step)
-        ys = list(map(lambda x: self.function(x), xs))
-
-        plt.figure()
         plt.plot(xs, ys)
-        plt.show()
-    
-class Lagrange(Plottable):
 
-    __slots__ = ["points", "max_dom", "min_dom"]
+
+class Lagrange(Plottable):
+    __slots__ = ["points"]
 
     #Merkelig nok virker denne dritten med autograd!
     def __init__(self, plist):
@@ -60,30 +60,30 @@ class Lagrange(Plottable):
     def sep(self):
         return [p["x"] for p in self.points], [p["y"] for p in self.points] 
 
-    def plot(self, start = None, end = None, step = 50):
-        if start == None or end == None:
-            super().plot(self.min_dom, self.max_dom, step)
-        else:
-            super().plot(start, end, step)
+    def plot(self, step = 50):
+        super().plot(self.min_dom, self.max_dom, step)
 
 def equiNode(start, end, step, f = (lambda x: 0)):
     xs = np.linspace(start, end, step)
     ys = map(f, xs)
     return [Point(x,y) for (x,y) in zip(xs,ys)]
 
-# Er det noe galt her? Hvorfor er ikke mengden med punkter symmetrisk
-# Andreas påpekte at den er off-center, fiks senerer
 def chebyNode(start, end, steps, f = lambda x: 0):
-    xs = map(lambda x: (end-start)/2*(np.cos(np.pi*(2*x+1)/(2*steps)))+(end+start)/2, range(steps))
+    xs = [(end-start)/2*(np.cos(np.pi*(2*x+1)/(2*steps)))+(end+start)/2 for x in range(steps)]
     ys = map(f, xs)
     return [Point(x,y) for (x,y) in zip(xs, ys)]
 
 def runge(x):
     return 1/(x**2+1)
 
+print(len(chebyNode(-5, 5, 10, runge)))
 
-p = Lagrange(chebyNode(-5,5,11,runge))
+plt.figure()
+
+r = Plottable(runge, -5, 5)
+r.plot()
+
+p = Lagrange(chebyNode(-5, 5, 10, runge))
 p.plot()
 
-r = Plottable(runge)
-r.plot(-5,5)
+plt.show()
