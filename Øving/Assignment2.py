@@ -76,14 +76,56 @@ def chebyNode(start, end, steps, f = lambda x: 0):
 def runge(x):
     return 1/(x**2+1)
 
-print(len(chebyNode(-5, 5, 10, runge)))
+class ErrorCalc(Lagrange):
+    __slots__ = ["trueFunction", "sqErr", "supErr", "N"]
 
+    def __init__(self, function, plist, n = 100):
+        super().__init__(plist)
+        self.trueFunction = Plottable(function, self.max_dom, self.min_dom)
+        self.N = n
+        self.sqErr, self.supErr = [self.err2(m+1) for m in range(n)], [self.errSup(m+1) for m in range(n)]
+
+    def sep(self):
+        return super().sep()
+
+    def err2(self, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.trueFunction.function)]
+        return np.sqrt((self.max_dom-self.min_dom)/(n)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
+
+    def errSup(self, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.trueFunction.function)]
+        return max([abs(y-x) for (x,y) in zip(p,f)])
+    
+    def plot(self):
+        plt.plot(range(1, self.N+1), self.sqErr, label = "Square Error")
+        plt.plot(range(1, self.N+1), self.supErr, label = "Sup Error")
+        plt.legend()
+
+    #def debug(self)
+
+# This is supposed to be defined on [0,1]
+def a(x):
+    return np.cos(2*np.pi*x)
+
+# This is supposed to be defined on [0,π/4]
+def b(x):
+    return np.exp(3*x)*np.sin(2*x)
+
+# Task i)
 plt.figure()
-
 r = Plottable(runge, -5, 5)
 r.plot()
-
 p = Lagrange(chebyNode(-5, 5, 10, runge))
 p.plot()
+plt.show()
 
+# Task ii) Something is horribly wrong here
+plt.figure()
+u = ErrorCalc(a, equiNode(0, 1, 20, a), 1000)
+u.plot()
+plt.show()
+
+plt.figure()
+u = ErrorCalc(b, equiNode(0, np.pi/4, 20, b), 1000)
+u.plot()
 plt.show()
