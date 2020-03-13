@@ -32,7 +32,7 @@ class Point:
 class Plottable():
     __slots__ = ["function", "max_dom", "min_dom"]
 
-    def __init__(self, function = lambda x: 0, ma = 0, mi = 1):
+    def __init__(self, function = lambda x: 0, mi = 0, ma = 1):
         self.function, self.max_dom, self.min_dom = function, ma, mi
     
     def plot(self, start = None, end = None, step = 50):
@@ -76,29 +76,35 @@ def chebyNode(start, end, steps, f = lambda x: 0):
 def runge(x):
     return 1/(x**2+1)
 
-class ErrorCalc(Lagrange):
+class ErrorCalc(Plottable):
     __slots__ = ["trueFunction", "sqErr", "supErr", "N"]
 
-    def __init__(self, function, plist, n = 100):
-        super().__init__(plist)
-        self.trueFunction = Plottable(function, self.max_dom, self.min_dom)
+    def __init__(self, function, ma, mi, n = 10):
+        super().__init__(function, ma, mi)
         self.N = n
-        self.sqErr, self.supErr = [self.err2(m+1) for m in range(n)], [self.errSup(m+1) for m in range(n)]
+        self.sqErr, self.supErr = [self.err2(m+1) for m in range(1, n)], [self.errSup(m+1) for m in range(1, n)]
 
-    def sep(self):
-        return super().sep()
+    def lagrangify(self, steps = None, ver = "Equi"):
+        if steps == None:
+            steps = self.N
+        if ver == "Equi":
+            return Lagrange(equiNode(self.min_dom, self.max_dom, steps, self.function))
+        if ver == "Cheby":
+            return Lagrange(chebyNode(self.min_dom, self.max_dom, steps, self.function))
+        return None
 
     def err2(self, n):
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.trueFunction.function)]
-        return np.sqrt((self.max_dom-self.min_dom)/(n)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.lagrangify(steps = n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
+        #print((sum([(y-x)**2 for (x,y) in zip(p,f)])))
+        return np.sqrt((self.max_dom-self.min_dom)/(100*n)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
 
     def errSup(self, n):
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, n, self.trueFunction.function)]
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.lagrangify(steps = n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
         return max([abs(y-x) for (x,y) in zip(p,f)])
     
     def plot(self):
-        plt.plot(range(1, self.N+1), self.sqErr, label = "Square Error")
-        plt.plot(range(1, self.N+1), self.supErr, label = "Sup Error")
+        plt.plot(range(2, self.N+1), self.sqErr, label = "Square Error")
+        plt.plot(range(2, self.N+1), self.supErr, label = "Sup Error")
         plt.legend()
 
     #def debug(self)
@@ -111,6 +117,7 @@ def a(x):
 def b(x):
     return np.exp(3*x)*np.sin(2*x)
 
+"""
 # Task i)
 plt.figure()
 r = Plottable(runge, -5, 5)
@@ -118,14 +125,15 @@ r.plot()
 p = Lagrange(chebyNode(-5, 5, 10, runge))
 p.plot()
 plt.show()
+"""
 
 # Task ii) Something is horribly wrong here
 plt.figure()
-u = ErrorCalc(a, equiNode(0, 1, 20, a), 1000)
+u = ErrorCalc(a, 0, 1, 50)
 u.plot()
 plt.show()
 
 plt.figure()
-u = ErrorCalc(b, equiNode(0, np.pi/4, 20, b), 1000)
+u = ErrorCalc(b, 0, np.pi/4, 50)
 u.plot()
 plt.show()
