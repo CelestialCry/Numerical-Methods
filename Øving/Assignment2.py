@@ -76,8 +76,27 @@ def chebyNode(start, end, steps, f = lambda x: 0):
 def runge(x):
     return 1/(x**2+1)
 
-class ErrorCalc(Plottable):
-    __slots__ = ["trueFunction", "sqErr", "supErr", "N"]
+class ErrorCompare(Plottable):
+    __slots__ = ["sqErr", "supErr", "N"]
+
+    def __init__(self, f, g, ma, mi, n = 10):
+        super().__init__(f, ma, mi)
+        self.N = n
+        self.sqErr, self.supErr = [self.err2(f, g, m+1) for m in range(1, n)], [self.errSup(f, g, m+1) for m in range(1, n)]
+
+    def err2(self, a, b, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, a)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, b)]
+        return np.sqrt((self.max_dom-self.min_dom)/(100*n)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
+
+    def errSup(self, a, b, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, a)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, b)]
+        return max([abs(y-x) for (x,y) in zip(p,f)])
+    
+    def plot(self):
+        plt.plot(range(2, self.N+1), self.sqErr, label = "Square Error")
+        plt.plot(range(2, self.N+1), self.supErr, label = "Sup Error")
+        plt.legend()
+class ErrorLagrange(ErrorCompare):
 
     def __init__(self, function, ma, mi, n = 10):
         super().__init__(function, ma, mi)
@@ -117,6 +136,13 @@ def a(x):
 def b(x):
     return np.exp(3*x)*np.sin(2*x)
 
+class PiecewiseLagrange(Plottable):
+    __slots__ = ["functions", "intervals"]
+
+    def __init__(self, f, xs, n = 10):
+        self.intervals = [(xs[i], xs[i+1]) for i in range(len(xs)-1)]
+        self.functions = [Lagrange(equiNode(a, b, n, f)).function for (a,b) in self.intervals]
+
 """
 # Task i)
 plt.figure()
@@ -129,11 +155,11 @@ plt.show()
 
 # Task ii) Something is horribly wrong here
 plt.figure()
-u = ErrorCalc(a, 0, 1, 50)
+u = ErrorLagrange(a, 0, 1, 50)
 u.plot()
 plt.show()
 
 plt.figure()
-u = ErrorCalc(b, 0, np.pi/4, 50)
+u = ErrorLagrange(b, 0, np.pi/4, 50)
 u.plot()
 plt.show()
