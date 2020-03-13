@@ -79,31 +79,35 @@ def runge(x):
 class ErrorCompare(Plottable):
     __slots__ = ["sqErr", "supErr", "N"]
 
-    def __init__(self, f, g, ma, mi, n = 10):
-        super().__init__(f, ma, mi)
-        self.N = n
-        self.sqErr, self.supErr = [self.err2(f, g, m+1) for m in range(1, n)], [self.errSup(f, g, m+1) for m in range(1, n)]
+    def __init__(self, function, ma, mi, n = 10):
+        super().__init__(function, ma, mi)
+        #self.N = n
+        #self.sqErr, self.supErr = [self.err2(m+1) for m in range(1, n)], [self.errSup(m+1) for m in range(1, n)]
 
-    def err2(self, a, b, n):
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, a)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, b)]
+    def genny(self, steps = None):
+        return None
+
+    def err2(self, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.genny(steps = n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
         return np.sqrt((self.max_dom-self.min_dom)/(100*n)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
 
-    def errSup(self, a, b, n):
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, a)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, b)]
+    def errSup(self, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.genny(steps = n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
         return max([abs(y-x) for (x,y) in zip(p,f)])
     
     def plot(self):
         plt.plot(range(2, self.N+1), self.sqErr, label = "Square Error")
         plt.plot(range(2, self.N+1), self.supErr, label = "Sup Error")
         plt.legend()
+
 class ErrorLagrange(ErrorCompare):
 
     def __init__(self, function, ma, mi, n = 10):
-        super().__init__(function, ma, mi)
+        super().__init__(function, ma, mi, n)
         self.N = n
         self.sqErr, self.supErr = [self.err2(m+1) for m in range(1, n)], [self.errSup(m+1) for m in range(1, n)]
 
-    def lagrangify(self, steps = None, ver = "Equi"):
+    def genny(self, steps = None, ver = "Equi"):
         if steps == None:
             steps = self.N
         if ver == "Equi":
@@ -113,18 +117,13 @@ class ErrorLagrange(ErrorCompare):
         return None
 
     def err2(self, n):
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.lagrangify(steps = n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
-        #print((sum([(y-x)**2 for (x,y) in zip(p,f)])))
-        return np.sqrt((self.max_dom-self.min_dom)/(100*n)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
+        return super().err2(n)
 
     def errSup(self, n):
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.lagrangify(steps = n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
-        return max([abs(y-x) for (x,y) in zip(p,f)])
+        return super().errSup(n)
     
     def plot(self):
-        plt.plot(range(2, self.N+1), self.sqErr, label = "Square Error")
-        plt.plot(range(2, self.N+1), self.supErr, label = "Sup Error")
-        plt.legend()
+        super().plot()
 
     #def debug(self)
 
