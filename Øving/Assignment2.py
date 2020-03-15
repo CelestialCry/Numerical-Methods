@@ -42,7 +42,6 @@ class Plottable():
         else:
             xs = np.linspace(start, end, step)
             ys = list(map(self.function, xs))
-
         plt.plot(xs, ys)
 
     def __call__(self, x):
@@ -66,8 +65,8 @@ class Lagrange(Plottable):
     def plot(self, step = 50):
         super().plot(self.min_dom, self.max_dom, step)
 
-    def __call__(self, x):
-        super().__call__(x)
+    #def __call__(self, x):
+    #    return self.function(x)
 
 class PiecewiseLagrange(Lagrange):
     __slots__ = ["functions", "interval"]
@@ -91,11 +90,8 @@ class PiecewiseLagrange(Lagrange):
                 return self.functions[i](x)
         return self.functions[-1](x)
 
-    def __call__(self, x):
-        super().__call__(x)
-
-    def plot(self):
-        super().plot()
+    #def __call__(self, x):
+    #    return self.function(x)
 
 def equiNode(start, end, step, f = (lambda x: 0)):
     xs = np.linspace(start, end, step)
@@ -128,9 +124,6 @@ class ErrorCompare(Plottable):
     def errSup(self, n):
         p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.genny(steps = n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
         return max([abs(y-x) for (x,y) in zip(p,f)])
-
-    def __call__(self, x):
-        super().__call__(x)
     
     def plot(self):
         plt.plot(range(2, self.N+1), self.sqErr, label = "Square Error")
@@ -153,24 +146,13 @@ class ErrorLagrange(ErrorCompare):
             return Lagrange(chebyNode(self.min_dom, self.max_dom, steps, self.function))
         return None
 
-    def err2(self, n):
-        return super().err2(n)
-
-    def errSup(self, n):
-        return super().errSup(n)
-
-    def __call__(self, x):
-        super().__call__(x)
-    
-    def plot(self):
-        super().plot()
-
 class ErrorPiecewiseLagrange(ErrorCompare):
     __slots__ = ["K"]
+
     def __init__(self, function, mi, ma, n = 10, k = 10):
         super().__init__(function, mi, ma)
         self.N, self.K = n, k
-        self.sqErr, self.supErr = None, None
+        self.sqErr, self.supErr = [self.err2(k+2) for k in range(self.K)], [self.errSup(k+2) for k in range(self.K)] 
 
     def genny(self, k):
         intervals = np.linspace(self.min_dom, self.max_dom, k)
@@ -178,17 +160,19 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         pintervals = [equiNode(mi, ma, self.N, self.function) for (mi, ma) in intervals]
         return PiecewiseLagrange(pintervals)
 
-    def err2(self, k):
-        return super().err2(k)
+    def err2(self, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.genny(n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.function)]
+        return np.sqrt((self.max_dom-self.min_dom)/(100*self.N)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
 
-    def errSup(self, k):
-        return super().errSup(k)
-
-    def __call__(self, x):
-        super().__call__(x)
+    def errSup(self, n):
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.genny(n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.function)]
+        return max([abs(y-x) for (x,y) in zip(p,f)])
 
     def plot(self):
-        super().plot()
+        plt.plot(range(2, self.K+2), self.sqErr, label = "Square Error")
+        plt.plot(range(2, self.K+2), self.supErr, label = "Sup Error")
+        plt.legend()
+
 
 # This is supposed to be defined on [0,1]
 def a(x):
@@ -197,6 +181,12 @@ def a(x):
 # This is supposed to be defined on [0,π/4]
 def b(x):
     return np.exp(3*x)*np.sin(2*x)
+
+"""
+#Debug
+d = PiecewiseLagrange([])
+print(d.min_dom)
+"""
 
 """
 # Task i)
@@ -208,16 +198,21 @@ p.plot()
 plt.show()
 """
 
-# Task ii) Something is horribly wrong here
-#plt.figure()
-u = ErrorPiecewiseLagrange(a, 0, 1)
-print(u.genny(5)(0))
-#u.plot()
-#plt.show()
-
 """
+# Task ii)
+plt.figure()
+u = ErrorLagrange(a, 0, 1, 50)
+u.plot()
+plt.show()
+
 plt.figure()
 u = ErrorLagrange(b, 0, np.pi/4, 50)
 u.plot()
 plt.show()
 """
+
+# Task iii)
+plt.figure()
+u = ErrorPiecewiseLagrange(a, 0, 1, 2, 50)
+u.plot()
+plt.show()
