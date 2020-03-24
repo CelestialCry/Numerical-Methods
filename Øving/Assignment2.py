@@ -42,8 +42,10 @@ class Plottable():
         else:
             xs = np.linspace(start, end, step)
             ys = list(map(self.function, xs))
-
         plt.plot(xs, ys)
+
+    def __call__(self, x):
+        return self.function(x)
 
 
 class Lagrange(Plottable):
@@ -63,6 +65,34 @@ class Lagrange(Plottable):
     def plot(self, step = 50):
         super().plot(self.min_dom, self.max_dom, step)
 
+    #def __call__(self, x):
+    #    return self.function(x)
+
+class PiecewiseLagrange(Lagrange):
+    __slots__ = ["functions", "interval"]
+
+    def __init__(self, pinterval):
+        self.points = pinterval
+        self.functions = [Lagrange(plist) for plist in pinterval]
+        self.interval = [(lambda x: (min(x), max(x)))(l.sep()[0]) for l in self.functions]
+        self.function = lambda x: self.nfunction(x)
+        self.min_dom, self.max_dom = self.interval[0][0], self.interval[-1][1]
+
+    def sep(self):
+        return [p.sep() for p in functions]
+
+    def nfunction(self, x):
+        if x < self.interval[0][1]:
+            return self.functions[0](x)
+        for i in range(1, len(self.interval)-1):
+            (m, n) = self.interval[i]
+            if m < x and x < n:
+                return self.functions[i](x)
+        return self.functions[-1](x)
+
+    #def __call__(self, x):
+    #    return self.function(x)
+
 def equiNode(start, end, step, f = (lambda x: 0)):
     xs = np.linspace(start, end, step)
     ys = map(f, xs)
@@ -79,8 +109,8 @@ def runge(x):
 class ErrorCompare(Plottable):
     __slots__ = ["sqErr", "supErr", "N"]
 
-    def __init__(self, function, ma, mi, n = 10):
-        super().__init__(function, ma, mi)
+    def __init__(self, function, mi, ma, n = 10):
+        super().__init__(function, mi, ma)
         #self.N = n
         #self.sqErr, self.supErr = [self.err2(m+1) for m in range(1, n)], [self.errSup(m+1) for m in range(1, n)]
 
@@ -100,10 +130,10 @@ class ErrorCompare(Plottable):
         plt.plot(range(2, self.N+1), self.supErr, label = "Sup Error")
         plt.legend()
 
-class ErrorLagrange(ErrorCompare):
 
-    def __init__(self, function, ma, mi, n = 10):
-        super().__init__(function, ma, mi, n)
+class ErrorLagrange(ErrorCompare):
+    def __init__(self, function, mi, ma, n = 10):
+        super().__init__(function, mi, ma, n)
         self.N = n
         self.sqErr, self.supErr = [self.err2(m+1) for m in range(1, n)], [self.errSup(m+1) for m in range(1, n)]
 
@@ -116,16 +146,33 @@ class ErrorLagrange(ErrorCompare):
             return Lagrange(chebyNode(self.min_dom, self.max_dom, steps, self.function))
         return None
 
+class ErrorPiecewiseLagrange(ErrorCompare):
+    __slots__ = ["K"]
+
+    def __init__(self, function, mi, ma, n = 10, k = 10):
+        super().__init__(function, mi, ma)
+        self.N, self.K = n, k
+        self.sqErr, self.supErr = [self.err2(k+2) for k in range(self.K)], [self.errSup(k+2) for k in range(self.K)] 
+
+    def genny(self, k):
+        intervals = np.linspace(self.min_dom, self.max_dom, k)
+        intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
+        pintervals = [equiNode(mi, ma, self.N, self.function) for (mi, ma) in intervals]
+        return PiecewiseLagrange(pintervals)
+
     def err2(self, n):
-        return super().err2(n)
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.genny(n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.function)]
+        return np.sqrt((self.max_dom-self.min_dom)/(100*self.N)*sum([(y-x)**2 for (x,y) in zip(p,f)]))
 
     def errSup(self, n):
-        return super().errSup(n)
-    
-    def plot(self):
-        super().plot()
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.genny(n).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*self.N, self.function)]
+        return max([abs(y-x) for (x,y) in zip(p,f)])
 
-    #def debug(self)
+    def plot(self):
+        plt.plot(range(2, self.K+2), self.sqErr, label = "Square Error")
+        plt.plot(range(2, self.K+2), self.supErr, label = "Sup Error")
+        plt.legend()
+
 
 # This is supposed to be defined on [0,1]
 def a(x):
@@ -135,12 +182,11 @@ def a(x):
 def b(x):
     return np.exp(3*x)*np.sin(2*x)
 
-class PiecewiseLagrange(Plottable):
-    __slots__ = ["functions", "intervals"]
-
-    def __init__(self, f, xs, n = 10):
-        self.intervals = [(xs[i], xs[i+1]) for i in range(len(xs)-1)]
-        self.functions = [Lagrange(equiNode(a, b, n, f)).function for (a,b) in self.intervals]
+"""
+#Debug
+d = PiecewiseLagrange([])
+print(d.min_dom)
+"""
 
 """
 # Task i)
@@ -152,7 +198,8 @@ p.plot()
 plt.show()
 """
 
-# Task ii) Something is horribly wrong here
+"""
+# Task ii)
 plt.figure()
 u = ErrorLagrange(a, 0, 1, 50)
 u.plot()
@@ -160,5 +207,12 @@ plt.show()
 
 plt.figure()
 u = ErrorLagrange(b, 0, np.pi/4, 50)
+u.plot()
+plt.show()
+"""
+
+# Task iii)
+plt.figure()
+u = ErrorPiecewiseLagrange(a, 0, 1, 2, 50)
 u.plot()
 plt.show()
