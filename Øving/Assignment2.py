@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import autograd.numpy as np
 from autograd import jacobian, grad
 from functools import reduce, partial
+import functools
+import time
 
 class Point:
     """
@@ -26,7 +28,7 @@ class Point:
         P["x"] and P["y"] can be used to get and set.
         Note: P[0] = P["x"] and P[1] = P["y"]
     print()
-        Is printable
+        It's printable, simply pu
 
     Raises
     ----------
@@ -115,18 +117,22 @@ class Plottable():
         """
         self.function, self.max_dom, self.min_dom = function, ma, mi
     
-    def plot(self, start = None, end = None, step = 50):
+    def plot(self, *args, start = None, end = None, step = 50, **kwargs):
         """
         Plots the wrapped function within it's interval.
 
         Parameters
         ----------
+        *args :: ???
+            Arguments from plt.plot() which are not the lists to plot,
         start :: Double
             Start of interval to plot on, defaults to min_dom
         end :: Double
             End of interval to plot on, defaults to max_dom
         step :: Int
             How many points to calculate
+        **kwargs :: ???
+            Keywordarguments from plt.plot
         """
         if start == None or end == None:
             xs = np.linspace(self.min_dom, self.max_dom, step)
@@ -134,7 +140,8 @@ class Plottable():
         else:
             xs = np.linspace(start, end, step)
             ys = list(map(self.function, xs))
-        plt.plot(xs, ys)
+        plt.plot(xs, ys, *args, *kwargs)
+        plt.legend()
     
     def __repr__(self): #Class representation
         plt.figure()
@@ -164,8 +171,8 @@ class Plottable():
 
 class Lagrange(Plottable):
     """
-    We're finally at task 1.a!
-    A wrapper for Lagrange Polynomials.
+    A wrapper for the Lagrange Polynomial of a given set of points.
+    The polynomial is generated at construction.
 
     Super-class
     ----------
@@ -183,7 +190,7 @@ class Lagrange(Plottable):
     Methods
     ----------
     sep()
-        Separetes the points in the list and returns the new list
+        Separates the points in the list and returns the new list
     """
     __slots__ = ["points"]
 
@@ -200,14 +207,14 @@ class Lagrange(Plottable):
         """
         self.points = plist
         xs, ys = self.sep()
-        self.max_dom, self.min_dom = max(xs), min(ys)
+        self.max_dom, self.min_dom = max(xs), min(xs)
         # Everything above should make sense, everything below is a clusterfuck
         λj = lambda xj, ls, x: reduce(lambda a,b: a*b, map(partial(lambda y, yj, arg: (y-arg)/(yj-arg), x, xj), ls))
-        self.function = lambda x: sum([ys[i]*partial(λj, xs[i], xs[0:i] + xs[i+1:len(xs)])(x) for i in range(len(xs))])
+        self.function = lambda x: np.polyval(sum([ys[i]*partial(λj, xs[i], xs[0:i] + xs[i+1:len(xs)])(np.poly1d([1,0])) for i in range(len(xs))]), x)
 
     def sep(self):
         """
-        Separetes the points in the list.
+        Separates the points in the list.
 
         Returns
         ----------
@@ -238,7 +245,7 @@ class PiecewiseLagrange(Lagrange):
     Methods
     ----------
     sep() - overloaded
-        This returns a list of seperations for every Lagrange Polynomial
+        This returns a list of separations for every Lagrange Polynomial
     nfunction(x)
         This is simply the "direct sum" of each Lagrage Polynomial on it's interval.
         It is extended to -inf and inf on the endpoints
@@ -248,8 +255,7 @@ class PiecewiseLagrange(Lagrange):
 
     def __init__(self, pinterval):
         """
-        Constructor for this class, has no default constructor
-
+        Constructor for this class, has no default constructor.
         This function just does the Lagrange interpolation on the given subintervals.
 
         Parameters
@@ -458,10 +464,10 @@ class ErrorCompare(Plottable):
         p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.genny(steps = k).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100*n, self.function)]
         return max([abs(y-x) for (x,y) in zip(p,f)])
     
-    def plot(self):
+    def plot(self, *args, **kwargs):
         '''Ploting the 2-norm and sup-norm as a function of the number of interpolations points used.'''
-        plt.semilogy(range(2, self.N+1), self.sqErr, label = "Square Error")
-        plt.semilogy(range(2, self.N+1), self.supErr, label = "Sup Error")
+        plt.semilogy(range(2, self.N+1), self.sqErr, *args, label = "Square Error", *kwargs)
+        plt.semilogy(range(2, self.N+1), self.supErr, *args, label = "Sup Error", *kwargs)
         plt.legend()
 
 
@@ -508,6 +514,7 @@ class ErrorLagrange(ErrorCompare):
         self.N = n
         self.sqErr, self.supErr = [self.err2(m+1, m+1) for m in range(1, n)], [self.errSup(m+1, m+1) for m in range(1, n)]
 
+    @functools.lru_cache
     def genny(self, steps = None):
         """
         The generator function for the Lagrange Polynomial.
@@ -569,8 +576,10 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         """
         super().__init__(function, mi, ma)
         self.N, self.K = n, k
-        self.sqErr, self.supErr = [self.err2(self.N, k+2) for k in range(self.K)], [self.errSup(self.N, k+2) for k in range(self.K)] 
+        #self.sqErr = [self.err2(self.N, k+2) for k in range(self.K)]
+        self.supErr = [self.errSup(self.N, k+2) for k in range(self.K)] 
 
+    @functools.lru_cache
     def genny(self, k):
         """
         The generator function for the piecewise Lagrange Polynomial with equidistant nodes.
@@ -589,10 +598,10 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         pintervals = [equiNode(mi, ma, self.N, self.function) for (mi, ma) in intervals]
         return PiecewiseLagrange(pintervals)
 
-    def plot(self):
+    def plot(self, *args, **kwargs):
         '''This is overloaded as we're plotting with another variable than the number of interpolation points'''
-        plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
-        plt.semilogy(range(2, self.K+2), self.supErr, label = "Sup Error")
+        #plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
+        plt.semilogy(range(2, self.K+2), self.supErr, *args, label = "Sup Error", *kwargs)
         plt.legend()
 
 
@@ -610,24 +619,31 @@ d = PiecewiseLagrange([])
 print(d.min_dom)
 """
 
-"""
 # Task i)
+start = time.time()
 plt.figure()
-r = Lagrange(equiNode(-5, 5, 10, runge))
+r = Lagrange(equiNode(-5, 5, 50, runge))
 r.plot()
-p = Lagrange(chebyNode(-5, 5, 10, runge))
-p.plot()
+#p = Lagrange(chebyNode(-5, 5, 10, runge))
+#p.plot()
+stop = time.time()
 plt.show()
-"""
+print(f"Time taken: {stop - start}")
 
 
+""" 
 # Task ii)
+start = time.time()
 plt.figure()
-u = ErrorLagrange(a, 0, 1, n = 50)
+u = ErrorLagrange(a, 0, 1, n = 10)
 u.plot()
-v = ErrorLagrange(a, 0, 1, n = 50, v = "Cheby")
-v.plot()
+#v = ErrorLagrange(a, 0, 1, n = 50, v = "Cheby")
+#v.plot()
+stop = time.time()
 plt.show()
+print(f"Time taken: {stop-start}")
+ """
+
 
 """
 plt.figure()
