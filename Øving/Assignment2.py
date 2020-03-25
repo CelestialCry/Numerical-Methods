@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
 import autograd.numpy as np
 from autograd import jacobian, grad
+from operator import mul
 from functools import reduce, partial
 import functools
+#import _thread as thread
 import time
 
 class Point:
@@ -209,8 +211,8 @@ class Lagrange(Plottable):
         xs, ys = self.sep()
         self.max_dom, self.min_dom = max(xs), min(xs)
         # Everything above should make sense, everything below is a clusterfuck
-        λj = lambda xj, ls, x: reduce(lambda a,b: a*b, map(partial(lambda y, yj, arg: (y-arg)/(yj-arg), x, xj), ls))
-        self.function = lambda x: np.polyval(sum([ys[i]*partial(λj, xs[i], xs[0:i] + xs[i+1:len(xs)])(np.poly1d([1,0])) for i in range(len(xs))]), x)
+        λj = lambda j, ls, x: ys[j]*reduce(mul, [(x-arg)/(ls[j]-arg) for arg in ls if ls[j] != arg])
+        self.function = lambda x: sum([λj(i, xs, x) for i in range(len(xs))])
 
     def sep(self):
         """
@@ -413,6 +415,7 @@ class ErrorCompare(Plottable):
         """
         super().__init__(function, mi, ma)
 
+    @functools.lru_cache
     def genny(self, steps = None):
         """
         This is simply a virtual method to generate approximations.
@@ -427,6 +430,7 @@ class ErrorCompare(Plottable):
         This function returns None as it is virtual
         """
         return None
+
 
     def err2(self, n, k):
         """
@@ -512,7 +516,7 @@ class ErrorLagrange(ErrorCompare):
         super().__init__(function, mi, ma, n)
         self.v = v
         self.N = n
-        self.sqErr, self.supErr = [self.err2(m+1, m+1) for m in range(1, n)], [self.errSup(m+1, m+1) for m in range(1, n)]
+        self.sqErr, self.supErr = [self.err2(self.N, m+1) for m in range(1, n)], [self.errSup(self.N, m+1) for m in range(1, n)]
 
     @functools.lru_cache
     def genny(self, steps = None):
@@ -551,7 +555,7 @@ class ErrorPiecewiseLagrange(ErrorCompare):
 
     Methods
     ----------
-    genny(k) - overloaded
+    genny(steps = None) - overloaded
         A generator function for finding a fitting piecewise Lagrange Polynomial based on the amount of intervals
     plot() - overloaded
         plotting is overloaded to handle intervals rather than interpolation points
@@ -580,7 +584,7 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         self.supErr = [self.errSup(self.N, k+2) for k in range(self.K)] 
 
     @functools.lru_cache
-    def genny(self, k):
+    def genny(self, steps = None):
         """
         The generator function for the piecewise Lagrange Polynomial with equidistant nodes.
 
@@ -593,7 +597,7 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         ----------
         Returns the piecewise Lagrange Polynomial
         """
-        intervals = np.linspace(self.min_dom, self.max_dom, k)
+        intervals = np.linspace(self.min_dom, self.max_dom, steps)
         intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
         pintervals = [equiNode(mi, ma, self.N, self.function) for (mi, ma) in intervals]
         return PiecewiseLagrange(pintervals)
@@ -613,52 +617,45 @@ def a(x):
 def b(x):
     return np.exp(3*x)*np.sin(2*x)
 
-"""
-#Debug
-d = PiecewiseLagrange([])
-print(d.min_dom)
-"""
 
 # Task i)
 start = time.time()
 plt.figure()
-r = Lagrange(equiNode(-5, 5, 50, runge))
+r = Lagrange(chebyNode(-5, 5, 30, runge))
 r.plot()
-#p = Lagrange(chebyNode(-5, 5, 10, runge))
-#p.plot()
-stop = time.time()
-plt.show()
-print(f"Time taken: {stop - start}")
+p = Lagrange(equiNode(-5, 5, 10, runge))
+p.plot()
+# plt.legend()
+# stop = time.time()
+# plt.show()
+# print(f"Time taken: {stop - start}")
 
-
-""" 
 # Task ii)
-start = time.time()
+# start = time.time()
 plt.figure()
-u = ErrorLagrange(a, 0, 1, n = 10)
+# u = ErrorLagrange(a, 0, 1, n = 50)
+# u.plot()
+v = ErrorLagrange(a, 0, 1, n = 20, v = "Equi")
+v.plot()
+# plt.show()
+
+
+plt.figure()
+u = ErrorLagrange(b, 0, np.pi/4, 20)
 u.plot()
-#v = ErrorLagrange(a, 0, 1, n = 50, v = "Cheby")
-#v.plot()
+# plt.show()
+
+
+
+# Task iii)
+plt.figure()
+u = ErrorPiecewiseLagrange(a, 0, 1, 2, 20)
+u.plot()
 stop = time.time()
 plt.show()
 print(f"Time taken: {stop-start}")
- """
 
 
-"""
-plt.figure()
-u = ErrorLagrange(b, 0, np.pi/4, 50)
-u.plot()
-plt.show()
-"""
-
-"""
-# Task iii)
-plt.figure()
-u = ErrorPiecewiseLagrange(a, 0, 1, 2, 50)
-u.plot()
-plt.show()
-"""
 """
 #Sammenlign
 ps = chebyNode(-1, 1, 100, lambda x: 20*np.cos(np.pi*x))
