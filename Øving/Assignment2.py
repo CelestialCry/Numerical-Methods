@@ -2,10 +2,11 @@ import matplotlib.pyplot as plt
 import autograd.numpy as np
 from autograd import jacobian, grad
 from operator import mul
-from functools import reduce, partial
+from functools import reduce
 import functools
 #import _thread as thread
 import time
+from math import factorial
 
 class Point:
     """
@@ -72,6 +73,12 @@ class Point:
             return self.y
         else:
             raise IndexError(f"{place} is out of range")
+
+def pointsToDict(points):
+    d = {}
+    for p in points:
+        d[p[0]] = p[1]
+    return d
 
 class Plottable():
     """
@@ -142,8 +149,7 @@ class Plottable():
         else:
             xs = np.linspace(start, end, step)
             ys = list(map(self.function, xs))
-        plt.plot(xs, ys, *args, *kwargs)
-        plt.legend()
+        plt.plot(xs, ys, *args, **kwargs)
     
     def __repr__(self): #Class representation
         plt.figure()
@@ -151,7 +157,7 @@ class Plottable():
         plt.show()
 
     def __call__(self, *args): #Function calling overloading
-        return self.function(args)
+        return self.function(*args)
     
     def diff(self, n):
         """
@@ -302,6 +308,51 @@ class PiecewiseLagrange(Lagrange):
                 return self.functions[i](x)
         return self.functions[-1](x)
 
+class DecentLagrange(Lagrange):
+    """
+    A wrapper for Lagrange polynomials where we know some points of the function.
+
+    Super-Class
+    ----------
+    Plottable -> Lagrange
+
+    Attributes
+    ----------
+    map :: {Double, Double}
+        A dictionary of the known values (See Map object)
+    keys :: [Double]
+        The keys to the dictionary
+    n :: Int
+        Number of interpolation nodes
+    N :: Int
+        Number of known points of the function
+
+    Method
+    ----------
+    cost(points)
+        Calculates a cost of producing the Lagrange polynomial with the given set of points
+    """
+
+    __slots__ = ["map", "keys", "n", "N"]
+
+    def __init__(self, known, n):
+        self.map = pointsToDict(known)
+        self.keys = [p[0] for p in known]
+        self.n, self.N = n, len(known)
+        self.min_dom, self.max_dom = min(self.keys), max(self.keys)
+        # Choose n points from known and set them into points
+        # Do lagrange interpolation
+        # Create costfunction
+        # Do Gradient Descent
+        # set self.points to output of Gradient Descent
+        # Do Lagrange interpolation a last time
+
+    def close(self, x):
+        for k in self.map:
+            pass
+
+    def cost(self, nodes):
+        return (self.max_dom-self.min_dom)/self.N*sum([(v - Lagrange([Point(x,self.map[x]) for x in nodes])(k))**2 for k,v in self.map.itemsn])
 
 def equiNode(start, end, step, f = (lambda x: 0)):
     """
@@ -430,7 +481,6 @@ class ErrorCompare(Plottable):
         This function returns None as it is virtual
         """
         return None
-
 
     def err2(self, n, k):
         """
@@ -581,7 +631,7 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         super().__init__(function, mi, ma)
         self.N, self.K = n, k
         #self.sqErr = [self.err2(self.N, k+2) for k in range(self.K)]
-        self.supErr = [self.errSup(self.N, k+2) for k in range(self.K)] 
+        self.supErr = [self.errSup(self.N, k+2) for k in range(self.K)] #Fiks dette Thomas!
 
     @functools.lru_cache
     def genny(self, steps = None):
@@ -605,7 +655,7 @@ class ErrorPiecewiseLagrange(ErrorCompare):
     def plot(self, *args, **kwargs):
         '''This is overloaded as we're plotting with another variable than the number of interpolation points'''
         #plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
-        plt.semilogy(range(2, self.K+2), self.supErr, *args, label = "Sup Error", *kwargs)
+        plt.semilogy([self.N*i for i in range(2, self.K+2)], self.supErr, *args, label = "Sup Error", **kwargs)
         plt.legend()
 
 
@@ -618,42 +668,51 @@ def b(x):
     return np.exp(3*x)*np.sin(2*x)
 
 
-# Task i)
+""" # Task i)
 start = time.time()
 plt.figure()
-r = Lagrange(chebyNode(-5, 5, 30, runge))
-r.plot()
+r = Lagrange(chebyNode(-5, 5, 10, runge))
+r.plot(label = "Cheby")
 p = Lagrange(equiNode(-5, 5, 10, runge))
-p.plot()
-# plt.legend()
+p.plot(label = "Equi")
+plt.axes(xlabel = "x", ylabel = "y")
+plt.legend()
 # stop = time.time()
 # plt.show()
 # print(f"Time taken: {stop - start}")
+ """
 
-# Task ii)
+""" # Task ii)
 # start = time.time()
 plt.figure()
-# u = ErrorLagrange(a, 0, 1, n = 50)
-# u.plot()
-v = ErrorLagrange(a, 0, 1, n = 20, v = "Equi")
+plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
+v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
 v.plot()
+(lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
+plt.legend()
 # plt.show()
-
-
 plt.figure()
-u = ErrorLagrange(b, 0, np.pi/4, 20)
+plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
+u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
 u.plot()
-# plt.show()
+plt.show() """
 
-
-
-# Task iii)
+""" # Task iii)
 plt.figure()
-u = ErrorPiecewiseLagrange(a, 0, 1, 2, 20)
+plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
+u = ErrorPiecewiseLagrange(a, 0, 1, 10, 200)
 u.plot()
-stop = time.time()
+# stop = time.time()
 plt.show()
-print(f"Time taken: {stop-start}")
+# print(f"Time taken: {stop-start}") """
+
+""" intervals = np.linspace(-5, 5, 10)
+intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
+pintervals = [equiNode(mi, ma, 4, runge) for (mi, ma) in intervals]
+a = PiecewiseLagrange(pintervals)
+plt.figure()
+a.plot()
+plt.show() """
 
 
 r = Plottable(runge)
@@ -676,3 +735,4 @@ def interpolation(w, x, inv):
     for i in range(len(x)):
         s += w[i] * phi(abs(inv - x[i]))
     return s
+
