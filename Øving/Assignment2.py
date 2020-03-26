@@ -347,12 +347,13 @@ class DecentLagrange(Lagrange):
         # set self.points to output of Gradient Descent
         # Do Lagrange interpolation a last time
 
-    def close(self, x):
-        for k in self.map:
-            pass
+    def choose(self, x):
+        for k in self.keys:
+            if k-x>=0:
+                return k
 
     def cost(self, nodes):
-        return (self.max_dom-self.min_dom)/self.N*sum([(v - Lagrange([Point(x,self.map[x]) for x in nodes])(k))**2 for k,v in self.map.itemsn])
+        return (self.max_dom-self.min_dom)/self.N*sum([(v - Lagrange([(lambda xx: Point(xx,self.map[xx]))(self.choose(x)) for x in nodes])(k))**2 for k,v in self.map.items()])
 
 def equiNode(start, end, step, f = (lambda x: 0)):
     """
@@ -714,3 +715,6 @@ a = PiecewiseLagrange(pintervals)
 plt.figure()
 a.plot()
 plt.show() """
+
+test = DecentLagrange(equiNode(0, 1, 1000, a), 10)
+print(grad(lambda ns: test.cost(ns))([100*i/1000 for i in range(10)]))
