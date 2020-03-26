@@ -339,8 +339,7 @@ class DecentLagrange(Lagrange):
         self.map = pointsToDict(known)
         self.keys = [p[0] for p in known]
         self.n, self.N = n, len(known)
-        xs = [p["x"] for p in known]
-        self.min_dom, self.max_dom = min(xs), max(xs)
+        self.min_dom, self.max_dom = min(self.keys), max(self.keys)
         # Choose n points from known and set them into points
         # Do lagrange interpolation
         # Create costfunction
@@ -348,10 +347,12 @@ class DecentLagrange(Lagrange):
         # set self.points to output of Gradient Descent
         # Do Lagrange interpolation a last time
 
+    def close(self, x):
+        for k in self.map:
+            pass
+
     def cost(self, nodes):
-        points = [Point(x,self.map[x]) for x in nodes]
-        p = Lagrange(points)
-        return (self.max_dom-self.min_dom)/self.N*sum([(self.map[k] - p(k))**2 for k in self.map])
+        return (self.max_dom-self.min_dom)/self.N*sum([(v - Lagrange([Point(x,self.map[x]) for x in nodes])(k))**2 for k,v in self.map.itemsn])
 
 def equiNode(start, end, step, f = (lambda x: 0)):
     """
