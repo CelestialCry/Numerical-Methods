@@ -706,7 +706,6 @@ u.plot()
 plt.show()
 # print(f"Time taken: {stop-start}") """
 
-
 """ intervals = np.linspace(-5, 5, 10)
 intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
 pintervals = [equiNode(mi, ma, 4, runge) for (mi, ma) in intervals]
@@ -714,3 +713,26 @@ a = PiecewiseLagrange(pintervals)
 plt.figure()
 a.plot()
 plt.show() """
+
+
+r = Plottable(runge)
+r.plot(-5,5)
+#---------------------------------
+def phi(r, e=3):
+    return np.exp(-(e * r) ** 2)
+def Get_w(x, f):
+    M = np.zeros((len(x), len(x)), dtype=float)
+    for i in range(len(x)):
+        for j in range(len(x)):
+            M[i][j] = phi(abs(x[i] - x[j]))
+    f_vec = np.zeros(len(x))
+    for i in range(len(x)):
+        f_vec[i] = f(x[i])
+    w = np.linalg.solve(M, f_vec)
+    return w
+def interpolation(w, x, inv):
+    s = 0
+    for i in range(len(x)):
+        s += w[i] * phi(abs(inv - x[i]))
+    return s
+
