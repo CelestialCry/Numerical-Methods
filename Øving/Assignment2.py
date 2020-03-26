@@ -343,8 +343,6 @@ class DecentLagrange(Lagrange):
         self.n, self.N = n, len(known)
         self.min_dom, self.max_dom = min(self.keys), max(self.keys)
         # Choose n points from known and set them into points
-        # Do lagrange interpolation
-        # Create costfunction
         # Do Gradient Descent
         # set self.points to output of Gradient Descent
         # Do Lagrange interpolation a last time
