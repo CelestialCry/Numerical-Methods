@@ -87,3 +87,23 @@ p.plot()
 
 r = Plottable(runge)
 r.plot(-5,5)
+#---------------------------------
+def phi(r, e=3):
+    return np.exp(-(e * r) ** 2)
+def Get_w(x, f):
+    M = np.zeros((len(x), len(x)), dtype=float)
+    for i in range(len(x)):
+        for j in range(len(x)):
+            M[i][j] = phi(abs(x[i] - x[j]))
+    f_vec = np.zeros(len(x))
+    for i in range(len(x)):
+        f_vec[i] = f(x[i])
+    w = np.linalg.solve(M, f_vec)
+    return w
+def interpolation(w, x, inv):
+    s = 0
+    for i in range(len(x)):
+        s += w[i] * phi(abs(inv - x[i]))
+    return s
+
+
