@@ -713,10 +713,10 @@ plt.show() """
 test = DecentLagrange(equiNode(0, 1, 2000, a), 10)
 print(grad(lambda ns: test.cost(ns))([100*i/1000 for i in range(10)]))
 
-r = Plottable(runge)
-r.plot(-5, 5)
-"""
+# r = Plottable(runge)
+# r.plot(-5, 5)
 
+"""
 # ---------------------------------
 def phi(r, e=3):
     return np.exp(-(e * r) ** 2)
@@ -749,3 +749,4 @@ t.plot()
 r = Plottable(runge,-1,1)
 r.plot()
 plt.show()
+"""
