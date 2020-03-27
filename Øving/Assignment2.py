@@ -4,10 +4,26 @@ from autograd import jacobian, grad
 from operator import mul
 from functools import reduce
 import functools
+import random
 # import _thread as thread
 import time
 from math import factorial
 
+def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.9):
+    gamma = 1
+    gradF = grad(F)
+    f = F(x0)
+    x1 = x0
+    
+    for n in range(maxIter):
+        x0 = x1
+        g = gradF(x0)
+        x1 = x0 - np.multiply(gamma,g)
+        # if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
+        #     gamma = h*gamma
+        if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(gradF(x1),2) <= TOLgrad):
+            break
+    return x1
 
 class Point:
     """
@@ -317,17 +333,16 @@ class DecentLagrange(Lagrange):
 
     __slots__ = ["map", "keys", "n", "N"]
 
-    def __init__(self, known, n):
-        # self.map = f
-        self.points = known
-        self.map = pointsToDict(known)
+    def __init__(self, f, known, n):
+        self.map = f
+        # self.map = pointsToDict(known)
         self.keys = [p[0] for p in known]
         self.n, self.N = n, len(known)
         self.min_dom, self.max_dom = min(self.keys), max(self.keys)
-        # Choose n points from known and set them into points
-        # Do Gradient Descent
-        # set self.points to output of Gradient Descent
-        # Do Lagrange interpolation a last time
+        xs = gradientDescent(self.cost, random.sample(self.keys, n))
+
+        self.points = [Point(x,self.map(x)) for x in xs]
+        self.function = Lagrange(self.points).function
 
     def choose(self, x):
         for k in self.keys:
@@ -335,7 +350,10 @@ class DecentLagrange(Lagrange):
                 return k
 
     def cost(self, nodes):
-        return (self.max_dom-self.min_dom)/self.N*sum([v - (Lagrange([(lambda xxx: Point(xxx, self.map[xxx]))(self.choose(x)) for x in nodes])(k))**2 for k,v in self.map.items()])
+        p = Lagrange([Point(x, self.map(x)) for x in nodes])
+        return (self.max_dom-self.min_dom)/self.N*sum([self.map(k) - p(k)**2 for k in self.keys])
+        # p = Lagrange([(lambda xxx: Point(xxx, self.map[xxx]))(self.choose(x)) for x in nodes])
+        # return (self.max_dom-self.min_dom)/self.N*sum([v - p(k)**2 for k,v in self.map.items()])
 
 def equiNode(start, end, step, f=(lambda x: 0)):
     """
@@ -443,7 +461,7 @@ class ErrorCompare(Plottable):
         """
         super().__init__(function, mi, ma)
 
-    @functools.lru_cache(None)
+    @functools.lru_cache(256)
     def genny(self, steps=None):
         """
         This is simply a virtual method to generate approximations.
@@ -470,13 +488,7 @@ class ErrorCompare(Plottable):
         ----------
         Returns the 2-norm error
         """
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P["y"]
-                                                                                                               for P in
-                                                                                                               equiNode(
-                                                                                                                   self.min_dom,
-                                                                                                                   self.max_dom,
-                                                                                                                   100 * n,
-                                                                                                                   self.function)]
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.function)]
         return np.sqrt((self.max_dom - self.min_dom) / (100 * n) * sum([(y - x) ** 2 for (x, y) in zip(p, f)]))
 
     def errSup(self, n, k):
@@ -494,13 +506,7 @@ class ErrorCompare(Plottable):
         ----------
         Returns the sup-norm error
         """
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P["y"]
-                                                                                                               for P in
-                                                                                                               equiNode(
-                                                                                                                   self.min_dom,
-                                                                                                                   self.max_dom,
-                                                                                                                   100 * n,
-                                                                                                                   self.function)]
+        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.function)]
         return max([abs(y - x) for (x, y) in zip(p, f)])
 
     def plot(self, *args, **kwargs):
@@ -549,7 +555,7 @@ class ErrorLagrange(ErrorCompare):
         self.sqErr, self.supErr = [self.err2(self.N, m + 1) for m in range(1, n)], [self.errSup(self.N, m + 1) for m in
                                                                                     range(1, n)]
 
-    @functools.lru_cache(None)
+    @functools.lru_cache(256)
     def genny(self, steps=None):
         """
         The generator function for the Lagrange Polynomial.
@@ -610,7 +616,7 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         #self.sqErr = [self.err2(self.N, k+2) for k in range(self.K)]
         self.supErr = [self.errSup(self.N, k+2) for k in range(self.K)] #Fiks dette Thomas!
 
-    @functools.lru_cache(None)
+    @functools.lru_cache(256)
     def genny(self, steps=None):
         """
         The generator function for the piecewise Lagrange Polynomial with equidistant nodes.
@@ -638,15 +644,25 @@ class ErrorDecentLagrange(ErrorCompare):
     Description here
     """
 
-    def __init__(self, f):
+    __slots__ = ["knownEqui", "knownCheby", "t"]
+
+    def __init__(self, f, mi, ma, N = 1000):
         """
         Description here
         """
+        self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
+        self.knownEqui, self.knownCheby = equiNode(mi, ma, N, f), chebyNode(mi, ma, N, f)
+        self.t = "Equi"
+        err2, errSup = []
         pass
 
-    @lru_cache
-    def genny(self, steps = None):
-        pass
+    @functools.lru_cache(256)
+    def genny(self, steps = 1):
+        if self.t == "Equi":
+            return DecentLagrange(self.function, self.knownEqui, steps)
+        elif self.t == "Cheby":
+            return DecentLagrange(self.function, self.knownCheby, steps)
+        return None
 
 
 # This is supposed to be defined on [0,1]
@@ -690,12 +706,12 @@ u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
 u.plot()
 plt.show() """
 
-
-""" # Task iii)
+""" 
+# Task iii)
 
 plt.figure()
 plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
-u = ErrorPiecewiseLagrange(a, 0, 1, 10, 200)
+u = ErrorPiecewiseLagrange(a, 0, 1, 5, 100)
 u.plot()
 # stop = time.time()
 plt.show()
@@ -707,11 +723,11 @@ pintervals = [equiNode(mi, ma, 4, runge) for (mi, ma) in intervals]
 a = PiecewiseLagrange(pintervals)
 plt.figure()
 a.plot()
-plt.show() """
+plt.show()
+"""
 
 
-test = DecentLagrange(equiNode(0, 1, 2000, a), 10)
-print(grad(lambda ns: test.cost(ns))([100*i/1000 for i in range(10)]))
+test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
 
 # r = Plottable(runge)
 # r.plot(-5, 5)
