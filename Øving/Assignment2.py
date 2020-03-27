@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
+import autograd.numpy as np
 from autograd import jacobian, grad
 from operator import mul
 from functools import reduce
