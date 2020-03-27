@@ -318,23 +318,24 @@ class DecentLagrange(Lagrange):
     __slots__ = ["map", "keys", "n", "N"]
 
     def __init__(self, known, n):
+        # self.map = f
+        self.points = known
         self.map = pointsToDict(known)
         self.keys = [p[0] for p in known]
         self.n, self.N = n, len(known)
         self.min_dom, self.max_dom = min(self.keys), max(self.keys)
         # Choose n points from known and set them into points
-        # Do lagrange interpolation
-        # Create costfunction
         # Do Gradient Descent
         # set self.points to output of Gradient Descent
         # Do Lagrange interpolation a last time
 
-    def close(self, x):
-        for k in self.map:
-            pass
+    def choose(self, x):
+        for k in self.keys:
+            if k-x>=0:
+                return k
 
     def cost(self, nodes):
-        return (self.max_dom-self.min_dom)/self.N*sum([(v - Lagrange([Point(x,self.map[x]) for x in nodes])(k))**2 for k,v in self.map.itemsn])
+        return (self.max_dom-self.min_dom)/self.N*sum([v - (Lagrange([(lambda xxx: Point(xxx, self.map[xxx]))(self.choose(x)) for x in nodes])(k))**2 for k,v in self.map.items()])
 
 def equiNode(start, end, step, f=(lambda x: 0)):
     """
@@ -632,6 +633,21 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         plt.semilogy([self.N*i for i in range(2, self.K+2)], self.supErr, *args, label = "Sup Error", **kwargs)
         plt.legend()
 
+class ErrorDecentLagrange(ErrorCompare):
+    """
+    Description here
+    """
+
+    def __init__(self, f):
+        """
+        Description here
+        """
+        pass
+
+    @lru_cache
+    def genny(self, steps = None):
+        pass
+
 
 # This is supposed to be defined on [0,1]
 def a(x):
@@ -694,6 +710,9 @@ a.plot()
 plt.show() """
 
 
+test = DecentLagrange(equiNode(0, 1, 2000, a), 10)
+print(grad(lambda ns: test.cost(ns))([100*i/1000 for i in range(10)]))
+
 r = Plottable(runge)
 r.plot(-5, 5)
 """
@@ -730,4 +749,3 @@ t.plot()
 r = Plottable(runge,-1,1)
 r.plot()
 plt.show()
-
