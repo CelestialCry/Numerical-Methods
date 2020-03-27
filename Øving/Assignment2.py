@@ -9,7 +9,6 @@ import random
 import time
 from math import factorial
 
-
 def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.9):
     gamma = 1
     gradF = grad(F)
@@ -19,8 +18,8 @@ def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.
         x0 = x1
         g = gradF(x0)
         x1 = x0 - np.multiply(gamma,g)
-        # if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
-        #     gamma = h*gamma
+        if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
+            gamma = h*gamma
         if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(gradF(x1),2) <= TOLgrad):
             break
     return x1
@@ -277,7 +276,6 @@ class DecentLagrange(Lagrange):
 
     def __init__(self, f, known, n):
         self.map = f
-        # self.map = pointsToDict(known)
         self.keys = [p[0] for p in known]
         self.n, self.N = n, len(known)
         self.min_dom, self.max_dom = min(self.keys), max(self.keys)
@@ -296,8 +294,6 @@ class DecentLagrange(Lagrange):
     def cost(self, nodes):
         p = Lagrange([(x, self.map(x)) for x in nodes])
         return (self.max_dom-self.min_dom)/self.N*sum([self.map(k) - p(k)**2 for k in self.keys])
-        # p = Lagrange([(lambda xxx: (xxx, self.map[xxx]))(self.choose(x)) for x in nodes])
-        # return (self.max_dom-self.min_dom)/self.N*sum([v - p(k)**2 for k,v in self.map.items()])
 
 def equiNode(start, end, step, f=(lambda x: 0)):
     """
@@ -589,7 +585,7 @@ class ErrorDecentLagrange(ErrorCompare):
     Description here
     """
 
-    __slots__ = ["knownEqui", "knownCheby", "t"]
+    __slots__ = ["knownEqui", "knownCheby", "t", "err22", "errSup2"]
 
     def __init__(self, f, mi, ma, N = 1000):
         """
@@ -598,8 +594,10 @@ class ErrorDecentLagrange(ErrorCompare):
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui, self.knownCheby = equiNode(mi, ma, N, f), chebyNode(mi, ma, N, f)
         self.t = "Equi"
-        err2, errSup = []
-        pass
+        err2, errSup = [self.err2(self.N, k+1) for k in range(10)], [self.errSup(self.N, k+1) for k in range(10)]
+        self.t = "Cheby"
+        err22, errSup2 = [self.err2(self.N, k+1) for k in range(10)], [self.errSup(self.N, k+1) for k in range(10)]
+
 
     @functools.lru_cache(256)
     def genny(self, steps = 1):
@@ -608,6 +606,9 @@ class ErrorDecentLagrange(ErrorCompare):
         elif self.t == "Cheby":
             return DecentLagrange(self.function, self.knownCheby, steps)
         return None
+
+    # Overskriv plot() til å lage tabell
+    # Ta selvmord fordi alt er så tregt :))))))))))))))
 
 
 # This is supposed to be defined on [0,1]
@@ -647,7 +648,6 @@ plt.legend()
 plt.figure()
 plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
-
 u.plot()
 plt.show()
  """
@@ -672,11 +672,16 @@ a.plot()
 plt.show()
 """
 
-
-""" test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
-swapper = gradientDescent(test.cost, test.points)
+"""
+test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
+xs = [x for x,_ in test.points]
+swapper = gradientDescent(test.cost, xs)
 test.changeBasis(swapper)
- """
+test.plot()
+"""
+
+# r = Plottable(runge)
+# r.plot(-5, 5)
 
 """
 r = Plottable(runge)
