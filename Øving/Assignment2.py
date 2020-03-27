@@ -12,7 +12,6 @@ from math import factorial
 def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.9):
     gamma = 1
     gradF = grad(F)
-    f = F(x0)
     x1 = x0
     
     for n in range(maxIter):
@@ -25,68 +24,9 @@ def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.
             break
     return x1
 
-class Point:
-    """
-    A class for constructing points, which are equivalent to a mutable 2-tuple.
-    This class is mostly legacy code, and was used for debugging purposes.
-    It is still alive as most of the code depends on this class.
-    The representation of this class allows for pretty printing of points though :)
-    Attributes
-    ----------
-    x :: Double
-        x-coordinate
-    y :: Double
-        y-coordinate
-    Operators
-    ----------
-    [] - Set and Get
-        Let P be of class Point
-        P["x"] and P["y"] can be used to get and set.
-        Note: P[0] = P["x"] and P[1] = P["y"]
-    print()
-        It's printable, simply pu
-    Raises
-    ----------
-    IndexError
-        User have inserted an illegal index
-    """
-    __slots__ = ["x", "y"]
-
-    def __init__(self, x=0, y=0):
-        """
-        Class constructor, with a default constructor which gives the origin.
-        Parameters
-        ----------
-        x :: Double
-         x-coordinate of the point
-        y :: Double
-            y-coordinate of the point
-        """
-        self.x = x
-        self.y = y
-
-    def __repr__(self):  # This is plainly a representation overload
-        return "(x:" + str(self.x) + "; " + "y:" + str(self.y) + ")"
-
-    def __setitem__(self, place, val):  # Set operator
-        if place == "x" or place == 0:
-            self.x = val
-        if place == "y" or place == 1:
-            self.y = val
-        else:
-            raise IndexError(f"{place} is out of range")
-
-    def __getitem__(self, place):  # Get operator
-        if place == "x" or place == 0:
-            return self.x
-        if place == "y" or place == 1:
-            return self.y
-        else:
-            raise IndexError(f"{place} is out of range")
-
-def pointsToDict(points):
+def tuplesToDict(tuples):
     d = {}
-    for p in points:
+    for p in tuples:
         d[p[0]] = p[1]
     return d
 
@@ -196,12 +136,12 @@ class Lagrange(Plottable):
             This is the Lagrange polynomial
     Attributes
     ----------
-    points :: [Point]
-        A list of objects of the class Point
+    points :: [(x,y)]
+        A list of tuples
     Methods
     ----------
     sep()
-        Separates the points in the list and returns the new list
+        Separates the tuples in the list and returns the new list
     """
     __slots__ = ["points"]
 
@@ -212,8 +152,8 @@ class Lagrange(Plottable):
         Class constructor, not equipped with a default constructor.
         Parameters
         ----------
-        plist :: [Point]
-            A list of points to do the interpolation over
+        plist :: [(x,y)]
+            A list of tuples to do the interpolation over
         """
         self.points = plist
         xs, ys = self.sep()
@@ -229,7 +169,7 @@ class Lagrange(Plottable):
         ----------
         Returns two list, one consisting of x-coordinates, the other of y-coordinates
         """
-        return [p["x"] for p in self.points], [p["y"] for p in self.points]
+        return [p[0] for p in self.points], [p[1] for p in self.points]
 
 
 class PiecewiseLagrange(Lagrange):
@@ -267,8 +207,8 @@ class PiecewiseLagrange(Lagrange):
         This function just does the Lagrange interpolation on the given subintervals.
         Parameters
         ----------
-        pinterval :: [[Point]]
-            A list of lists of objects from the class Point
+        pinterval :: [[(x,y)]]
+            A list of lists of objects from the class 
         """
         self.points = pinterval
         self.functions = [Lagrange(plist) for plist in pinterval]  # This is where we do the lagrange
@@ -339,20 +279,22 @@ class DecentLagrange(Lagrange):
         self.keys = [p[0] for p in known]
         self.n, self.N = n, len(known)
         self.min_dom, self.max_dom = min(self.keys), max(self.keys)
-        xs = gradientDescent(self.cost, random.sample(self.keys, n))
-
-        self.points = [Point(x,self.map(x)) for x in xs]
-        self.function = Lagrange(self.points).function
+        self.points = [(x, self.map(x)) for x in random.sample(self.keys, n)]
+        self.function = Lagrange(self.points).function #This is a random initiliazation
 
     def choose(self, x):
         for k in self.keys:
             if k-x>=0:
                 return k
 
+    def changeBasis(self, nodes):
+        self.points = [(x, self.map(x)) for x in nodes]
+        self.function = Lagrange(self.points).function
+
     def cost(self, nodes):
-        p = Lagrange([Point(x, self.map(x)) for x in nodes])
+        p = Lagrange([(x, self.map(x)) for x in nodes])
         return (self.max_dom-self.min_dom)/self.N*sum([self.map(k) - p(k)**2 for k in self.keys])
-        # p = Lagrange([(lambda xxx: Point(xxx, self.map[xxx]))(self.choose(x)) for x in nodes])
+        # p = Lagrange([(lambda xxx: (xxx, self.map[xxx]))(self.choose(x)) for x in nodes])
         # return (self.max_dom-self.min_dom)/self.N*sum([v - p(k)**2 for k,v in self.map.items()])
 
 def equiNode(start, end, step, f=(lambda x: 0)):
@@ -370,11 +312,11 @@ def equiNode(start, end, step, f=(lambda x: 0)):
         A function to distribute the y-values on
     Returns
     ----------
-    A list of Point objects
+    A list of (x,y)
     """
     xs = np.linspace(start, end, step)
     ys = map(f, xs)
-    return [Point(x, y) for (x, y) in zip(xs, ys)]
+    return [a for a in zip(xs, ys)]
 
 
 def chebyNode(start, end, steps, f=lambda x: 0):
@@ -392,11 +334,11 @@ def chebyNode(start, end, steps, f=lambda x: 0):
         A function to distribute the y-values on
     Returns
     ----------
-    A list of Point objects
+    A list of (x,y)
     """
     xs = [(end - start) / 2 * (np.cos(np.pi * (2 * x + 1) / (2 * steps))) + (end + start) / 2 for x in range(steps)]
     ys = map(f, xs)
-    return [Point(x, y) for (x, y) in zip(xs, ys)]
+    return [(x, y) for (x, y) in zip(xs, ys)]
 
 
 def runge(x):
@@ -488,7 +430,7 @@ class ErrorCompare(Plottable):
         ----------
         Returns the 2-norm error
         """
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.function)]
+        p, f = [P[1] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P[1] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.function)]
         return np.sqrt((self.max_dom - self.min_dom) / (100 * n) * sum([(y - x) ** 2 for (x, y) in zip(p, f)]))
 
     def errSup(self, n, k):
@@ -506,7 +448,7 @@ class ErrorCompare(Plottable):
         ----------
         Returns the sup-norm error
         """
-        p, f = [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P["y"] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.function)]
+        p, f = [P[1] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.genny(steps=k).function)], [P[1] for P in equiNode(self.min_dom, self.max_dom, 100 * n, self.function)]
         return max([abs(y - x) for (x, y) in zip(p, f)])
 
     def plot(self, *args, **kwargs):
@@ -552,8 +494,7 @@ class ErrorLagrange(ErrorCompare):
         super().__init__(function, mi, ma, n)
         self.v = v
         self.N = n
-        self.sqErr, self.supErr = [self.err2(self.N, m + 1) for m in range(1, n)], [self.errSup(self.N, m + 1) for m in
-                                                                                    range(1, n)]
+        self.sqErr, self.supErr = [self.err2(self.N, m + 1) for m in range(1, n)], [self.errSup(self.N, m + 1) for m in range(1, n)]
 
     @functools.lru_cache(256)
     def genny(self, steps=None):
@@ -674,22 +615,23 @@ def a(x):
 def b(x):
     return np.exp(3 * x) * np.sin(2 * x)
 
-
-""" # Task i)
+""" 
+# Task i)
 start = time.time()
 plt.figure()
+plt.axes(xlabel = "x", ylabel = "y")
 r = Lagrange(chebyNode(-5, 5, 10, runge))
 r.plot(label = "Cheby")
 p = Lagrange(equiNode(-5, 5, 10, runge))
 p.plot(label = "Equi")
-plt.axes(xlabel = "x", ylabel = "y")
 plt.legend()
 # stop = time.time()
-# plt.show()
+plt.show()
 # print(f"Time taken: {stop - start}")
  """
 
-""" # Task ii)
+""" 
+# Task ii)
 # start = time.time()
 plt.figure()
 plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
@@ -699,23 +641,23 @@ v.plot()
 plt.legend()
 # plt.show()
 plt.figure()
-
 plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
 
 u.plot()
-plt.show() """
+plt.show()
+ """
 
 """ 
 # Task iii)
-
 plt.figure()
 plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
 u = ErrorPiecewiseLagrange(a, 0, 1, 5, 100)
 u.plot()
 # stop = time.time()
 plt.show()
-# print(f"Time taken: {stop-start}") """
+# print(f"Time taken: {stop-start}")
+ """
 
 """ intervals = np.linspace(-5, 5, 10)
 intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
@@ -727,8 +669,10 @@ plt.show()
 """
 
 
-test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
-
+""" test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
+swapper = gradientDescent(test.cost, test.points)
+test.changeBasis(swapper)
+ """
 # r = Plottable(runge)
 # r.plot(-5, 5)
 
