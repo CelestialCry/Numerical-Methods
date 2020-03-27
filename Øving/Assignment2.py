@@ -9,6 +9,7 @@ import random
 import time
 from math import factorial
 
+
 def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.9):
     gamma = 1
     gradF = grad(F)
@@ -29,6 +30,7 @@ def tuplesToDict(tuples):
     for p in tuples:
         d[p[0]] = p[1]
     return d
+
 
 class Plottable():
     """
@@ -96,15 +98,14 @@ class Plottable():
             xs = np.linspace(start, end, step)
             ys = list(map(self.function, xs))
         plt.plot(xs, ys, *args, **kwargs)
-    
-    def __repr__(self): #Class representation
+
+    def __repr__(self):  # Class representation
         plt.figure()
         self.plot()
         plt.show()
 
-    def __call__(self, *args): #Function calling overloading
+    def __call__(self, *args):  # Function calling overloading
         return self.function(*args)
-    
 
     def diff(self, n):
         """
@@ -246,6 +247,7 @@ class PiecewiseLagrange(Lagrange):
                 return self.functions[i](x)
         return self.functions[-1](x)
 
+
 class DecentLagrange(Lagrange):
     """
     A wrapper for Lagrange polynomials where we know some points of the function.
@@ -354,6 +356,8 @@ def runge(x):
     """
     return 1 / (x ** 2 + 1)
 
+def exfunc(x):
+    return (3/4)*(np.exp((-1/4)*(9*x - 2)**2) + np.exp((-1/49)*(9*x + 1)**2)) + (1/2)*np.exp((-1/4)*(9*x - 7)**2) - (1/10)*np.exp(-(9*x - 4)**2)
 
 class ErrorCompare(Plottable):
     """
@@ -554,8 +558,8 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         super().__init__(function, mi, ma)
         self.N, self.K = n, k
 
-        #self.sqErr = [self.err2(self.N, k+2) for k in range(self.K)]
-        self.supErr = [self.errSup(self.N, k+2) for k in range(self.K)] #Fiks dette Thomas!
+        # self.sqErr = [self.err2(self.N, k+2) for k in range(self.K)]
+        self.supErr = [self.errSup(self.N, k + 2) for k in range(self.K)]  # Fiks dette Thomas!
 
     @functools.lru_cache(256)
     def genny(self, steps=None):
@@ -576,8 +580,8 @@ class ErrorPiecewiseLagrange(ErrorCompare):
 
     def plot(self, *args, **kwargs):
         '''This is overloaded as we're plotting with another variable than the number of interpolation points'''
-        #plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
-        plt.semilogy([self.N*i for i in range(2, self.K+2)], self.supErr, *args, label = "Sup Error", **kwargs)
+        # plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
+        plt.semilogy([self.N * i for i in range(2, self.K + 2)], self.supErr, *args, label="Sup Error", **kwargs)
         plt.legend()
 
 class ErrorDecentLagrange(ErrorCompare):
@@ -673,20 +677,22 @@ plt.show()
 swapper = gradientDescent(test.cost, test.points)
 test.changeBasis(swapper)
  """
-# r = Plottable(runge)
-# r.plot(-5, 5)
 
 """
+r = Plottable(runge)
+r.plot(-5, 5)
+"""
+#task v
 # ---------------------------------
 def phi(r, e=3):
     return np.exp(-(e * r) ** 2)
 
 
-def Get_w(x, f):
+def Get_w(x, f,e=3):
     M = np.zeros((len(x), len(x)), dtype=float)
     for i in range(len(x)):
         for j in range(len(x)):
-            M[i][j] = phi(abs(x[i] - x[j]))
+            M[i][j] = phi(abs(x[i] - x[j]),e)
     f_vec = np.zeros(len(x))
     for i in range(len(x)):
         f_vec[i] = f(x[i])
@@ -694,19 +700,43 @@ def Get_w(x, f):
     return w
 
 
-def interpolation(w, x, inv):
+def interpolation(w, x, inv,e=3):
     s = 0
     for i in range(len(x)):
-        s += w[i] * phi(abs(inv - x[i]))
+        s += w[i] * phi(abs(inv - x[i]),e)
     return s
 
 vec1 = np.array( [-1+i*(1+1)/100 for i in range(100+1)])
 
-def interpolert(x):
-    return interpolation(Get_w(vec1,runge),vec1,x)
-t = Plottable(interpolert,-1,1)
-t.plot()
-r = Plottable(runge,-1,1)
-r.plot()
-plt.show()
-"""
+# def interpolert1(x):
+#     return interpolation(Get_w(vec1,runge),vec1,x)
+# t = Plottable(interpolert1,-1,1)
+# t.plot()
+# r = Plottable(runge,-1,1)
+# r.plot()
+# plt.show
+
+# def interpolert2(x):
+#     return interpolation(Get_w(vec1,exfunc),vec1,x)
+# t2 = Plottable(interpolert2,-1,1)
+# t2.plot(label="interpolert")
+# ex = Plottable(exfunc,-1,1)
+# ex.plot(label = "stygg")
+# plt.legend()
+# plt.show()
+
+
+def cost_int(x,e,f,N = 100, a=-1, b=1):
+    xi = [a+i*(b-a)/N for i in range(N+1)]
+    def g(t):
+        return interpolation(Get_w(x,f),x,t,e)
+    s = 0
+    for i in range(N):
+        s += (f(xi[i])-g(xi[i]))**2
+    return ((b-a)/N)*s
+rungecheb = chebyNode(-1, 1, 100, runge)
+chebarray = np.zeros(len(rungecheb))
+for i in range(len(rungecheb)):
+    chebarray[i] = rungecheb[i][0]
+equiarray = [(-1)+i*(1+1)/100 for i in range(100+1)]
+print(cost_int(equiarray,3,runge,100,-1,1))
