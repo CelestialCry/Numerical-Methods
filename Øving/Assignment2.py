@@ -735,7 +735,7 @@ def cost_int(x,e,f,N = 100, a=-1, b=1):
     g = interpolation(Get_w(x,f),x,e) # Denne her kunne du tatt i en lambda Andreas, tsk tsk tsk
     s = 0
     for i in range(N):
-        s += (f(xi[i])-g(xi[i]))**2
+        s += (f(xi[i])-g(xi[i]))**2 # Denne er brått raskere en min
     return ((b-a)/N)*s
 
 rungecheb = chebyNode(-1, 1, 100, runge)
