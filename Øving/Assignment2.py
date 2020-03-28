@@ -652,7 +652,7 @@ u.plot()
 plt.show()
  """
 
-""" 
+
 # Task iii)
 plt.figure()
 plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
@@ -661,7 +661,7 @@ u.plot()
 # stop = time.time()
 plt.show()
 # print(f"Time taken: {stop-start}")
- """
+
 
 """ intervals = np.linspace(-5, 5, 10)
 intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
@@ -682,6 +682,7 @@ test.changeBasis(swapper)
 r = Plottable(runge)
 r.plot(-5, 5)
 """
+
 #task v
 # ---------------------------------
 def phi(r, e=3):
@@ -692,7 +693,7 @@ def Get_w(x, f,e=3):
     M = np.zeros((len(x), len(x)), dtype=float)
     for i in range(len(x)):
         for j in range(len(x)):
-            M[i][j] = phi(abs(x[i] - x[j]),e)
+            M[i][j] = phi(abs(x[i] - x[j]),e) # Tror dette er muligens den raskeste løsningene å gjøre dette på, nice!
     f_vec = np.zeros(len(x))
     for i in range(len(x)):
         f_vec[i] = f(x[i])
@@ -700,11 +701,12 @@ def Get_w(x, f,e=3):
     return w
 
 
-def interpolation(w, x, inv,e=3):
-    s = 0
+def interpolation(ws, xs, e=3):
+    return lambda x: sum([ws[i]*phi(abs(x-xs[i])) for i in range(len(xs))])
+    """ s = 0
     for i in range(len(x)):
         s += w[i] * phi(abs(inv - x[i]),e)
-    return s
+    return s """
 
 vec1 = np.array( [-1+i*(1+1)/100 for i in range(100+1)])
 
@@ -725,18 +727,20 @@ vec1 = np.array( [-1+i*(1+1)/100 for i in range(100+1)])
 # plt.legend()
 # plt.show()
 
+def equiX(a,b,N):
+    return [a+i*(b-a)/N for i in range(N+1)]
 
 def cost_int(x,e,f,N = 100, a=-1, b=1):
-    xi = [a+i*(b-a)/N for i in range(N+1)]
-    def g(t):
-        return interpolation(Get_w(x,f),x,t,e)
+    xi = equiX(a, b, N)
+    g = interpolation(Get_w(x,f),x,e) # Denne her kunne du tatt i en lambda Andreas, tsk tsk tsk
     s = 0
     for i in range(N):
         s += (f(xi[i])-g(xi[i]))**2
     return ((b-a)/N)*s
+
 rungecheb = chebyNode(-1, 1, 100, runge)
 chebarray = np.zeros(len(rungecheb))
 for i in range(len(rungecheb)):
     chebarray[i] = rungecheb[i][0]
-equiarray = [(-1)+i*(1+1)/100 for i in range(100+1)]
+equiarray = equiX(-1, 1, 100)
 print(cost_int(equiarray,3,runge,100,-1,1))
