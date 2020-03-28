@@ -1,3 +1,5 @@
+#encoding utf-8
+
 import matplotlib.pyplot as plt
 import autograd.numpy as np
 from autograd import jacobian, grad
@@ -700,13 +702,11 @@ def Get_w(x, f,e=3):
     w = np.linalg.solve(M, f_vec)
     return w
 
+def equiX(a,b,N):
+    return [a+i*(b-a)/N for i in range(N+1)]
 
 def interpolation(ws, xs, e=3):
     return lambda x: sum([ws[i]*phi(abs(x-xs[i])) for i in range(len(xs))])
-    """ s = 0
-    for i in range(len(x)):
-        s += w[i] * phi(abs(inv - x[i]),e)
-    return s """
 
 vec1 = np.array( [-1+i*(1+1)/100 for i in range(100+1)])
 
@@ -727,20 +727,20 @@ vec1 = np.array( [-1+i*(1+1)/100 for i in range(100+1)])
 # plt.legend()
 # plt.show()
 
-def equiX(a,b,N):
-    return [a+i*(b-a)/N for i in range(N+1)]
+def coq(e, f, N, a, b):
+    coq.e, coq.f, coq.N, coq.a, coq.b = w, f, N, a, b
 
-def cost_int(x,e,f,N = 100, a=-1, b=1):
-    xi = equiX(a, b, N)
-    g = interpolation(Get_w(x,f),x,e) # Denne her kunne du tatt i en lambda Andreas, tsk tsk tsk
-    s = 0
-    for i in range(N):
-        s += (f(xi[i])-g(xi[i]))**2 # Denne er brått raskere en min
-    return ((b-a)/N)*s
+def cost_int(x): # Hva er disse standarverdiene på N, a og b???
+    xis = equiX(coq.a, coq.b, coq.N)
+    g = interpolation(Get_w(x,cpq.f),x,coq.e) # Denne her kunne du tatt i en lambda Andreas, tsk tsk tsk
+    s = 0 # Initialization of constants
+    for i in range(coq.N):
+        s += (coq.f(xis[i])-g(xis[i]))**2 # Denne er brått raskere en min s
+    return ((coq.b-coq.a)/coq.N)*s
 
-rungecheb = chebyNode(-1, 1, 100, runge)
+""" rungecheb = chebyNode(-1, 1, 100, runge)
 chebarray = np.zeros(len(rungecheb))
 for i in range(len(rungecheb)):
     chebarray[i] = rungecheb[i][0]
 equiarray = equiX(-1, 1, 100)
-print(cost_int(equiarray,3,runge,100,-1,1))
+print(cost_int(equiarray,3,runge,100,-1,1)) """
