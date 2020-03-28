@@ -710,8 +710,7 @@ def interpolation(ws, xs, e=3):
 
 vec1 = np.array( [-1+i*(1+1)/100 for i in range(100+1)])
 
-# def interpolert1(x):
-#     return interpolation(Get_w(vec1,runge),vec1,x)
+
 # t = Plottable(interpolert1,-1,1)
 # t.plot()
 # r = Plottable(runge,-1,1)
@@ -735,7 +734,7 @@ def cost_int(x,e,f,N = 100, a=-1, b=1):
     g = interpolation(Get_w(x,f),x,e) # Denne her kunne du tatt i en lambda Andreas, tsk tsk tsk
     s = 0
     for i in range(N):
-        s += (f(xi[i])-g(xi[i]))**2
+        s = s + (f(xi[i])-g(xi[i]))**2
     return ((b-a)/N)*s
 
 rungecheb = chebyNode(-1, 1, 100, runge)
@@ -745,10 +744,28 @@ for i in range(len(rungecheb)):
 equiarray = equiX(-1, 1, 100)
 print(cost_int(equiarray,3,runge,100,-1,1))
 
+test_w = Get_w(chebarray,runge)
+
 def cost_inter_runge_cheb(x):
-    return interpolation(Get_w(x,runge),x,3)
+    xi = equiX(-1, 1, 100)
+    g = interpolation(test_w, x, 3)
+    s = 0
+    for i in range(100):
+        s = s + (runge(xi[i])-g(xi[i]))**2
+    return ((1+1)/100)*s
+
+
 
 print(cost_inter_runge_cheb(chebarray))
-#print(gradientDescent(cost_inter_runge_cheb,chebarray))
-print(grad(cost_inter_runge_cheb))
+print(gradientDescent(cost_inter_runge_cheb,chebarray))
+#print(cost_inter_runge_cheb(gradientDescent(cost_inter_runge_cheb,chebarray)))
+interpolert1 = interpolation(Get_w(gradientDescent(cost_inter_runge_cheb,chebarray),runge),gradientDescent(cost_inter_runge_cheb,chebarray))
+plt.figure()
+t = Plottable(interpolert1,-1,1)
+t.plot()
+r = Plottable(runge,-1,1)
+r.plot()
+
+plt.show
+#print(grad(cost_inter_runge_cheb)(chebarray))
 #test
