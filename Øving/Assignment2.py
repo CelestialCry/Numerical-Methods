@@ -744,3 +744,11 @@ for i in range(len(rungecheb)):
     chebarray[i] = rungecheb[i][0]
 equiarray = equiX(-1, 1, 100)
 print(cost_int(equiarray,3,runge,100,-1,1))
+
+def cost_inter_runge_cheb(x):
+    return interpolation(Get_w(x,runge),x,3)
+
+print(cost_inter_runge_cheb(chebarray))
+#print(gradientDescent(cost_inter_runge_cheb,chebarray))
+print(grad(cost_inter_runge_cheb))
+#test
