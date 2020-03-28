@@ -1,3 +1,5 @@
+#encoding utf-8
+
 import matplotlib.pyplot as plt
 import autograd.numpy as np
 from autograd import jacobian, grad
@@ -19,8 +21,8 @@ def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.
         x0 = x1
         g = gradF(x0)
         x1 = x0 - np.multiply(gamma,g)
-        # if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
-        #     gamma = h*gamma
+        if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
+            gamma = h*gamma
         if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(gradF(x1),2) <= TOLgrad):
             break
     return x1
@@ -653,14 +655,14 @@ plt.show()
  """
 
 
-# Task iii)
+""" # Task iii)
 plt.figure()
 plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
 u = ErrorPiecewiseLagrange(a, 0, 1, 5, 100)
 u.plot()
 # stop = time.time()
 plt.show()
-# print(f"Time taken: {stop-start}")
+# print(f"Time taken: {stop-start}") """
 
 
 """ intervals = np.linspace(-5, 5, 10)
@@ -685,87 +687,40 @@ r.plot(-5, 5)
 
 #task v
 # ---------------------------------
-def phi(r, e=3):
-    return np.exp(-(e * r) ** 2)
+def coq(e, f, N, a, b):
+    coq.e, coq.f, coq.N, coq.a, coq.b = e, f, N, a, b
 
+def phi(r):
+    return np.exp(-(coq.e * r) ** 2)
+    
 
-def Get_w(x, f,e=3):
-    M = np.zeros((len(x), len(x)), dtype=float)
-    for i in range(len(x)):
-        for j in range(len(x)):
-            M[i][j] = phi(abs(x[i] - x[j]),e) # Tror dette er muligens den raskeste løsningene å gjøre dette på, nice!
-    f_vec = np.zeros(len(x))
-    for i in range(len(x)):
-        f_vec[i] = f(x[i])
-    w = np.linalg.solve(M, f_vec)
-    return w
-
-
-def interpolation(ws, xs, e=3):
-    return lambda x: sum([ws[i]*phi(abs(x-xs[i])) for i in range(len(xs))])
-    """ s = 0
-    for i in range(len(x)):
-        s += w[i] * phi(abs(inv - x[i]),e)
-    return s """
-
-vec1 = np.array( [-1+i*(1+1)/100 for i in range(100+1)])
-
-
-# t = Plottable(interpolert1,-1,1)
-# t.plot()
-# r = Plottable(runge,-1,1)
-# r.plot()
-# plt.show
-
-# def interpolert2(x):
-#     return interpolation(Get_w(vec1,exfunc),vec1,x)
-# t2 = Plottable(interpolert2,-1,1)
-# t2.plot(label="interpolert")
-# ex = Plottable(exfunc,-1,1)
-# ex.plot(label = "stygg")
-# plt.legend()
-# plt.show()
+def Get_w(x):
+    M = np.array([[phi(abs(x[i]-x[j])) for j in range(len(x))] for i in range(len(x))], dtype = float)
+    f_vec = np.array([coq.f(x[i]) for i in range(len(x))])
+    ws = np.linalg.solve(M, f_vec)
+    # w = np.multiply(np.linalg.inv(M), f_vec)
+    return ws
 
 def equiX(a,b,N):
     return [a+i*(b-a)/N for i in range(N+1)]
 
-def cost_int(x,e,f,N = 100, a=-1, b=1):
-    xi = equiX(a, b, N)
-    g = interpolation(Get_w(x,f),x,e) # Denne her kunne du tatt i en lambda Andreas, tsk tsk tsk
-    s = 0
-    for i in range(N):
-        s = s + (f(xi[i])-g(xi[i]))**2
-    return ((b-a)/N)*s
-
-rungecheb = chebyNode(-1, 1, 100, runge)
-chebarray = np.zeros(len(rungecheb))
-for i in range(len(rungecheb)):
-    chebarray[i] = rungecheb[i][0]
-equiarray = equiX(-1, 1, 100)
-print(cost_int(equiarray,3,runge,100,-1,1))
-
-test_w = Get_w(chebarray,runge)
-
-def cost_inter_runge_cheb(x):
-    xi = equiX(-1, 1, 100)
-    g = interpolation(test_w, x, 3)
-    s = 0
-    for i in range(100):
-        s = s + (runge(xi[i])-g(xi[i]))**2
-    return ((1+1)/100)*s
+def interpolation(xs):
+    ws = Get_w(xs)
+    return lambda x: sum([ws[i]*phi(abs(x-xs[i])) for i in range(len(xs))])
 
 
+def cost_int(xs): # Hva er disse standarverdiene på N, a og b???
+    xis = np.array(equiX(coq.a, coq.b, coq.N))
+    g = interpolation(xs) # Denne her kunne du tatt i en lambda Andreas, tsk tsk tsk
+    s = 0 # Initialization of constants
+    for i in range(coq.N):
+        s = s + (coq.f(xis[i])-g(xis[i]))**2 # Denne er brått raskere en min :sss
+    return ((coq.b-coq.a)/coq.N)*s
 
-print(cost_inter_runge_cheb(chebarray))
-print(gradientDescent(cost_inter_runge_cheb,chebarray))
-#print(cost_inter_runge_cheb(gradientDescent(cost_inter_runge_cheb,chebarray)))
-interpolert1 = interpolation(Get_w(gradientDescent(cost_inter_runge_cheb,chebarray),runge),gradientDescent(cost_inter_runge_cheb,chebarray))
-plt.figure()
-t = Plottable(interpolert1,-1,1)
-t.plot()
-r = Plottable(runge,-1,1)
-r.plot()
+chebarray = np.array([x for x,_ in chebyNode(-1, 0, 100, runge)])
+# equiarray = equiX(-1, 1, 100)
+# print(cost_int(equiarray,3,runge,100,-1,1))
 
-plt.show
-#print(grad(cost_inter_runge_cheb)(chebarray))
-#test
+coq(3, runge, 100, -1, 1)
+
+print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(gradientDescent(cost_int, chebarray))}")
