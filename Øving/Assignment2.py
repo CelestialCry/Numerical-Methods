@@ -12,7 +12,7 @@ import time
 from math import factorial
 
 
-def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.9):
+def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 100, h = 0.9):
     gamma = 1
     gradF = grad(F)
     x1 = x0
@@ -21,9 +21,11 @@ def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.
         x0 = x1
         g = gradF(x0)
         x1 = x0 - np.multiply(gamma,g)
+        print(n)
         if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
             gamma = h*gamma
         if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(gradF(x1),2) <= TOLgrad):
+            print("gradF(x1): "gradF(x1)'\n')
             break
     return x1
 
@@ -421,6 +423,9 @@ class ErrorCompare(Plottable):
         ----------
         This function returns None as it is virtual
         """
+
+
+
         return None
 
     def err2(self, n, k):
@@ -611,7 +616,32 @@ class ErrorDecentLagrange(ErrorCompare):
             return DecentLagrange(self.function, self.knownCheby, steps)
         return None
 
-
+class ErrRBF(ErrorCompare):
+    __slots__ = ["a","b"]
+    def __init__(self, f, mi, ma, n = 10):
+        super().__init__(f, mi ,ma, n)
+        self.N = n
+        self.a = 0
+        self.sqErr = [self.err2(self.N,h+1) for h in range(2,n+1)]
+        self.a = 1
+        self.b = [self.err2(self.N, h+1) for h in range(2,n+1)]
+    def genny(self, steps=None):
+        coq(self.function, steps, self.min_dom, self.max_dom)
+        xs = equiX(self.min_dom,self.max_dom,steps)
+        if self.a == 0:
+            nodes = gradientDescent(cost_int, xs)
+            print(nodes)
+            g =interpolation(nodes)
+            return Plottable(g,self.min_dom,self.max_dom)
+        elif self.a == 1:
+            g = interpolation(xs)
+            return Plottable(g,self.min_dom,self.max_dom)
+    def plot(self, *args, **kwargs):
+        '''This is overloaded as we're plotting with another variable than the number of interpolation points'''
+        # plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
+        plt.semilogy([i for i in range(2, self.N + 1)],self.sqErr, *args, label="sqrt Error", **kwargs)
+        plt.semilogy([i for i in range(2, self.N + 1)], self.b, *args, label="sqrt Error", **kwargs)
+        plt.legend()
 # This is supposed to be defined on [0,1]
 def a(x):
     return np.cos(2 * np.pi * x)
@@ -687,11 +717,11 @@ r.plot(-5, 5)
 
 #task v
 # ---------------------------------
-def coq(e, f, N, a, b):
-    coq.e, coq.f, coq.N, coq.a, coq.b = e, f, N, a, b
+def coq(f, N, a, b):
+    coq.f, coq.N, coq.a, coq.b = f, N, a, b
 
-def phi(r):
-    return np.exp(-(coq.e * r) ** 2)
+def phi(r,e=3):
+    return np.exp(-(e * r) ** 2)
     
 
 def Get_w(x):
@@ -706,7 +736,7 @@ def equiX(a,b,N):
 
 def interpolation(xs):
     ws = Get_w(xs)
-    return lambda x: sum([ws[i]*phi(abs(x-xs[i])) for i in range(len(xs))])
+    return lambda x: sum([ws[i]*phi(abs(x-xs[i]),xs[-1]) for i in range(len(xs)-1)])
 
 
 def cost_int(xs): # Hva er disse standarverdiene på N, a og b???
@@ -717,10 +747,20 @@ def cost_int(xs): # Hva er disse standarverdiene på N, a og b???
         s = s + (coq.f(xis[i])-g(xis[i]))**2 # Denne er brått raskere en min :sss
     return ((coq.b-coq.a)/coq.N)*s
 
-chebarray = np.array([x for x,_ in chebyNode(-1, 0, 100, runge)])
+#chebarray = np.array([x for x,_ in chebyNode(-0.5, 0.5, 101, runge)])
+#chebarray[-1]=-1 #We choose the last entry in the array to be 3, this is because this is the shape parameter and it will be around that value.
+# How do we know that? uhhh you know,, i should-, excuse me for a moment
+# good lord what is happening in there?! aurora borialis.
+
 # equiarray = equiX(-1, 1, 100)
 # print(cost_int(equiarray,3,runge,100,-1,1))
+plt.figure()
+#coq(runge, 100, -1, 1)
+u = ErrRBF(runge,-1,1,100)
+print(u.sqErr)
 
-coq(3, runge, 100, -1, 1)
-
-print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(gradientDescent(cost_int, chebarray))}")
+u.plot()
+plt.show()
+#optipunkter = gradientDescent(cost_int, chebarray)
+#print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(optipunkter)}")
+#print(optipunkter)
