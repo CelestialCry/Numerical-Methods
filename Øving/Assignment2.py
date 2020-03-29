@@ -473,6 +473,10 @@ class ErrorCompare(Plottable):
         plt.semilogy(range(2, self.N + 1), self.supErr, *args, label="Sup Error", *kwargs)
         plt.legend()
 
+    def plot2(self, *args, **kwargs):
+        plt.semilogy(range(2, self.N + 1), self.sqErr, *args, label=f"Square Error with {self.v}nodes", *kwargs)
+        plt.legend()
+
 
 class ErrorLagrange(ErrorCompare):
     """
@@ -689,7 +693,7 @@ plt.show()
 plt.figure()
 plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
-u.plot()
+u.plot2()
 plt.show()
 
 
@@ -762,13 +766,13 @@ def cost_int(xs): # Hva er disse standarverdiene på N, a og b???
 
 # equiarray = equiX(-1, 1, 100)
 # print(cost_int(equiarray,3,runge,100,-1,1))
-plt.figure()
+# plt.figure()
 #coq(runge, 100, -1, 1)
-u = ErrRBF(runge,-1,1,100)
-print(u.sqErr)
+# u = ErrRBF(runge,-1,1,100)
+# print(u.sqErr)
 
-u.plot()
-plt.show()
+# u.plot()
+# plt.show()
 #optipunkter = gradientDescent(cost_int, chebarray)
 #print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(optipunkter)}")
 #print(optipunkter)
