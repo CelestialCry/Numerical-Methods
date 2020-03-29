@@ -14,15 +14,20 @@ def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000
     x1 = x0
     φ = F(x1)
     for m in range(maxIter):
+        print(f"m:{m}")
+        χ = x0
         g = gradF(x1)
         for n in range(maxIter):
+            print(f"n:{n}")
             x1 = x0 - 1/γ*g
             ψ = F(x1)
-            if ψ <= φ + np.dot(g,x1-x0)+L/2*np.linalg.norm(x1-x0)**2:
+            if ψ <= φ + np.dot(g,x1-x0)+γ/2*np.linalg.norm(x1-x0)**2:
                 x0, φ, γ = x1, ψ, ρ*γ
                 break
             else:
                 γ = σ*γ
+        if np.linalg.norm(x1-χ) <= TOL or np.linalg.norm(g) <= TOL:
+            break
     return x1
 
 def tuplesToDict(tuples):
@@ -770,11 +775,11 @@ def cost_int(xs): # Hva er disse standarverdiene på N, a og b???
 # print(cost_int(equiarray,3,runge,100,-1,1))
 # plt.figure()
 #coq(runge, 100, -1, 1)
-u = ErrRBF(runge,-1,1,20)
-print(u.sqErr)
+# u = ErrRBF(runge,-1,1,20)
+# print(u.sqErr)
 
-u.plot()
-plt.show()
+# u.plot()
+# plt.show()
 #optipunkter = gradientDescent(cost_int, chebarray)
 #print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(optipunkter)}")
 #print(optipunkter)
