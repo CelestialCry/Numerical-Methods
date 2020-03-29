@@ -23,6 +23,7 @@ def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000
                 break
             else:
                 γ = σ*γ
+    return x1
 
 def tuplesToDict(tuples):
     d = {}
