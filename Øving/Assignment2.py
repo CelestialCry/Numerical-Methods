@@ -29,7 +29,7 @@ def gradientDescent(F, x0, TOLx = 1e-14, TOLgrad = 1e-14, maxIter = 1000, h = 0.
             gamma = h*gamma
         else:
             gamma = 1/h*gamma
-        if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(g,2) <= TOLgrad):
+        if (np.linalg.norm(x1-x0,2) <= TOLx): #or (np.linalg.norm(g,2) <= TOLgrad):
             break
         # st = time.time-st()
     return x1
@@ -609,16 +609,16 @@ class ErrorDescent(ErrorCompare):
     Description here
     """
 
-    __slots__ = ["v"]
+    __slots__ = ["v", "knownEqui"]
 
     def __init__(self, f, mi, ma, N = 1000, v = "Equi"):
         """
         Description here
         """
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
-        self.knownEqui, self.knownCheby = equiNode(mi, ma, N, f), chebyNode(mi, ma, N, f)
-        self.t = "Equi"
-        err2, errSup = [self.err2(self.N, k+1) for k in range(10)], [self.errSup(self.N, k+1) for k in range(10)]
+        self.knownEqui = equiX(mi, ma, N)
+        self.v = "Equi"
+        self.sqErr = [self.err2(self.N, k+1) for k in range(10)]
 
 
     @functools.lru_cache(256)
@@ -628,6 +628,10 @@ class ErrorDescent(ErrorCompare):
         elif self.v == "Cheby":
             return DescentLagrange(self.function, self.knownCheby, steps)
         return None
+
+    def plot(self, *args, **kwargs):
+        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent - Square Error", *kwargs)
+        plt.legend()
 
 class ErrRBF(ErrorCompare):
     __slots__ = ["a","b"]
@@ -681,7 +685,7 @@ plt.show()
  """
 
 
-# Task ii)
+""" # Task ii)
 # start = time.time()
 # plt.figure()
 # plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
@@ -694,7 +698,7 @@ plt.figure()
 plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
 u.plot2()
-plt.show()
+plt.show() """
 
 
 
@@ -723,12 +727,17 @@ plt.show()
 """
 
 
-""" sta = time.time()
-decPoly = DescentLagrange(a, equiX(0, 1, 1000), 3)
-print(time.time()-sta)
+# sta = time.time()
+d = ErrorDescent(a, 0, 1)
+a = ErrorLagrange(a, 0, 1)
+b = ErrorLagrange(a, 0, 1, v = "Cheby")
+# print(time.time()-sta)
 plt.figure()
-decPoly.plot()
-plt.show() """
+plt.axes(xlabel = "n - nodes", ylabel = "error")
+d.plot()
+a.plot2()
+b.plot2()
+plt.show()
 
 #task v
 # ---------------------------------
