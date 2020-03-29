@@ -9,19 +9,27 @@ import random
 import time
 from math import factorial
 
-def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.9):
+def gradientDescent(F, x0, TOLx = 1e-14, TOLgrad = 1e-14, maxIter = 1000, h = 0.9):
     gamma = 1
     gradF = grad(F)
     x1 = x0
+    # gt = time.time()
+    g = gradF(x1)
+    # gt = time.time()-gt
     
     for n in range(maxIter):
+        print(n)
+        # st = time.time()
         x0 = x1
-        g = gradF(x0)
         x1 = x0 - np.multiply(gamma,g)
+        # gt = time.time()
+        g = gradF(x1)
+        # gt = time.time()-gt
         if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
             gamma = h*gamma
-        if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(gradF(x1),2) <= TOLgrad):
+        if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(g,2) <= TOLgrad):
             break
+        # st = time.time-st()
     return x1
 
 def tuplesToDict(tuples):
@@ -212,8 +220,7 @@ class PiecewiseLagrange(Lagrange):
         """
         self.points = pinterval
         self.functions = [Lagrange(plist) for plist in pinterval]  # This is where we do the lagrange
-        self.interval = [(lambda x: (min(x), max(x)))(l.sep()[0]) for l in
-                         self.functions]  # Defining the start and end of each Polynomial
+        self.interval = [(lambda x: (min(x), max(x)))(l.sep()[0]) for l in self.functions]  # Defining the start and end of each Polynomial
         self.function = lambda x: self.nfunction(x)  # "Gluing" the polynomials together, extending the ends
         self.min_dom, self.max_dom = self.interval[0][0], self.interval[-1][
             1]  # Then setting the total start and endpoint to be the start of the first and end of the last function
@@ -247,7 +254,7 @@ class PiecewiseLagrange(Lagrange):
         return self.functions[-1](x)
 
 
-class DecentLagrange(Lagrange):
+class DescentLagrange(Plottable):
     """
     A wrapper for Lagrange polynomials where we know some points of the function.
 
@@ -272,28 +279,29 @@ class DecentLagrange(Lagrange):
         Calculates a cost of producing the Lagrange polynomial with the given set of points
     """
 
-    __slots__ = ["map", "keys", "n", "N"]
+    __slots__ = ["f", "xsKnown", "N", "n"]
 
-    def __init__(self, f, known, n):
-        self.map = f
-        self.keys = [p[0] for p in known]
-        self.n, self.N = n, len(known)
-        self.min_dom, self.max_dom = min(self.keys), max(self.keys)
-        self.points = [(x, self.map(x)) for x in random.sample(self.keys, n)]
-        self.function = Lagrange(self.points).function #This is a random initiliazation
+    def __init__(self, f, xsKnown, n):
+        self.f, self.xsKnown = f, xsKnown
+        self.min_dom, self.max_dom, self.N = min(xsKnown), max(xsKnown), len(xsKnown)
+        self.n = n
 
-    def choose(self, x):
-        for k in self.keys:
-            if k-x>=0:
-                return k
+        def cost(xs):
+            p = self.inter(xs)
+            return (self.max_dom-self.min_dom)/self.N*sum([(self.f(x)-p(x))**2 for x in self.xsKnown])
 
-    def changeBasis(self, nodes):
-        self.points = [(x, self.map(x)) for x in nodes]
-        self.function = Lagrange(self.points).function
+        # print(grad(cost)(equiX(self.min_dom, self.max_dom, self.n)))
 
-    def cost(self, nodes):
-        p = Lagrange([(x, self.map(x)) for x in nodes])
-        return (self.max_dom-self.min_dom)/self.N*sum([self.map(k) - p(k)**2 for k in self.keys])
+        bestNodes = gradientDescent(cost, equiX(self.min_dom, self.max_dom, self.n), 10)
+        self.function = self.inter(bestNodes)
+
+    def inter(self, xs):
+        ys = self.f(xs)
+        λj = lambda j, ls, x: ys[j]*reduce(mul, [(x-arg)/(ls[j]-arg) for arg in ls if ls[j] != arg])
+        return lambda x: sum([λj(i, xs, x) for i in range(len(xs))])
+
+def equiX(a,b,N):
+    return np.array([a+i*(b-a)/N for i in range(N+1)])
 
 def equiNode(start, end, step, f=(lambda x: 0)):
     """
@@ -580,14 +588,14 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         plt.semilogy([self.N * i for i in range(2, self.K + 2)], self.supErr, *args, label="Sup Error", **kwargs)
         plt.legend()
 
-class ErrorDecentLagrange(ErrorCompare):
+class ErrorDescent(ErrorCompare):
     """
     Description here
     """
 
-    __slots__ = ["knownEqui", "knownCheby", "t", "err22", "errSup2"]
+    __slots__ = ["v"]
 
-    def __init__(self, f, mi, ma, N = 1000):
+    def __init__(self, f, mi, ma, N = 1000, v = "Equi"):
         """
         Description here
         """
@@ -595,20 +603,15 @@ class ErrorDecentLagrange(ErrorCompare):
         self.knownEqui, self.knownCheby = equiNode(mi, ma, N, f), chebyNode(mi, ma, N, f)
         self.t = "Equi"
         err2, errSup = [self.err2(self.N, k+1) for k in range(10)], [self.errSup(self.N, k+1) for k in range(10)]
-        self.t = "Cheby"
-        err22, errSup2 = [self.err2(self.N, k+1) for k in range(10)], [self.errSup(self.N, k+1) for k in range(10)]
 
 
     @functools.lru_cache(256)
     def genny(self, steps = 1):
-        if self.t == "Equi":
-            return DecentLagrange(self.function, self.knownEqui, steps)
-        elif self.t == "Cheby":
-            return DecentLagrange(self.function, self.knownCheby, steps)
+        if self.v == "Equi":
+            return DescentLagrange(self.function, self.knownEqui, steps)
+        elif self.v == "Cheby":
+            return DescentLagrange(self.function, self.knownCheby, steps)
         return None
-
-    # Overskriv plot() til å lage tabell
-    # Ta selvmord fordi alt er så tregt :))))))))))))))
 
 
 # This is supposed to be defined on [0,1]
@@ -672,13 +675,13 @@ a.plot()
 plt.show()
 """
 
-"""
-test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
-xs = [x for x,_ in test.points]
-swapper = gradientDescent(test.cost, xs)
-test.changeBasis(swapper)
-test.plot()
-"""
+
+""" sta = time.time()
+decPoly = DescentLagrange(a, equiX(0, 1, 1000), 3)
+print(time.time()-sta)
+plt.figure()
+decPoly.plot()
+plt.show() """
 
 #task v
 # ---------------------------------
@@ -695,9 +698,6 @@ def Get_w(x):
     ws = np.linalg.solve(M, f_vec)
     # w = np.multiply(np.linalg.inv(M), f_vec)
     return ws
-
-def equiX(a,b,N):
-    return [a+i*(b-a)/N for i in range(N+1)]
 
 def interpolation(xs):
     ws = Get_w(xs)
@@ -716,6 +716,6 @@ chebarray = np.array([x for x,_ in chebyNode(-1, 0, 100, runge)])
 # equiarray = equiX(-1, 1, 100)
 # print(cost_int(equiarray,3,runge,100,-1,1))
 
-coq(3, runge, 100, -1, 1)
+""" coq(3, runge, 100, -1, 1)
 
-print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(gradientDescent(cost_int, chebarray))}")
+print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(gradientDescent(cost_int, chebarray))}") """
