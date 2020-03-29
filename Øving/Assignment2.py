@@ -9,30 +9,22 @@ import random
 import time
 from math import factorial
 
-def gradientDescent(F, x0, TOLx = 1e-14, TOLgrad = 1e-14, maxIter = 1000, h = 0.9):
-    gamma = 1
+def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000):
     gradF = grad(F)
     x1 = x0
-    # gt = time.time()
-    g = gradF(x1)
-    # gt = time.time()-gt
-    
-    for n in range(maxIter):
-        print(n)
-        # st = time.time()
-        x0 = x1
-        x1 = x0 - np.multiply(gamma,g)
-        # gt = time.time()
+    φ = F(x1)
+    for m in range(maxIter):
         g = gradF(x1)
-        # gt = time.time()-gt
-        if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
-            gamma = h*gamma
-        else:
-            gamma = 1/h*gamma
-        if (np.linalg.norm(x1-x0,2) <= TOLx): #or (np.linalg.norm(g,2) <= TOLgrad):
-            break
-        # st = time.time-st()
-    return x1
+        for n in range(maxIter):
+            x1 = x0 - 1/γ*g
+            ψ = F(x1)
+            if ψ <= φ + np.dot(g,x1-x0)+L/2*np.linalg.norm(x1-x0)**2:
+                x0, φ, γ = x1, ψ, ρ*γ
+                break
+            else:
+                γ = σ*γ
+
+    pass
 
 def tuplesToDict(tuples):
     d = {}
