@@ -766,7 +766,7 @@ plt.figure()
 #coq(runge, 100, -1, 1)
 u = ErrRBF(runge,-1,1,100)
 print(u.sqErr)
- 
+
 u.plot()
 plt.show()
 #optipunkter = gradientDescent(cost_int, chebarray)
