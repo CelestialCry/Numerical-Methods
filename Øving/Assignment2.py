@@ -24,8 +24,6 @@ def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000
             else:
                 γ = σ*γ
 
-    pass
-
 def tuplesToDict(tuples):
     d = {}
     for p in tuples:
@@ -636,7 +634,8 @@ class ErrRBF(ErrorCompare):
         self.b = [self.err2(self.N, h+1) for h in range(2,n+1)]
     def genny(self, steps=None):
         coq(self.function, steps, self.min_dom, self.max_dom)
-        xs = equiX(self.min_dom,self.max_dom,steps)
+#        xs = equiX(self.min_dom,self.max_dom,steps)
+        xs = chebyX(self.min_dom,self.max_dom,steps)
         if self.a == 0:
             nodes = gradientDescent(cost_int, xs)
             print(nodes)
@@ -648,8 +647,8 @@ class ErrRBF(ErrorCompare):
     def plot(self, *args, **kwargs):
         '''This is overloaded as we're plotting with another variable than the number of interpolation points'''
         # plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
-        plt.semilogy([i for i in range(2, self.N + 1)],self.sqErr, *args, label="sqrt Error", **kwargs)
-        plt.semilogy([i for i in range(2, self.N + 1)], self.b, *args, label="sqrt Error", **kwargs)
+        plt.semilogy([i for i in range(2, self.N + 1)],self.sqErr, *args, label="sqrt Error grad Descent", **kwargs)
+        plt.semilogy([i for i in range(2, self.N + 1)], self.b, *args, label="sqrt Error  w/o grad Descent", **kwargs)
         plt.legend()
 
 # This is supposed to be defined on [0,1]
@@ -660,7 +659,8 @@ def a(x):
 # This is supposed to be defined on [0,π/4]
 def b(x):
     return np.exp(3 * x) * np.sin(2 * x)
-
+def chebyX(start, end, steps):
+  return [(end - start) / 2 * (np.cos(np.pi * (2 * x + 1) / (2 * steps))) + (end + start) / 2 for x in range(steps)]
 """ 
 # Task i)
 start = time.time()
@@ -769,11 +769,11 @@ def cost_int(xs): # Hva er disse standarverdiene på N, a og b???
 # print(cost_int(equiarray,3,runge,100,-1,1))
 # plt.figure()
 #coq(runge, 100, -1, 1)
-# u = ErrRBF(runge,-1,1,100)
-# print(u.sqErr)
+u = ErrRBF(runge,-1,1,20)
+print(u.sqErr)
 
-# u.plot()
-# plt.show()
+u.plot()
+plt.show()
 #optipunkter = gradientDescent(cost_int, chebarray)
 #print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(optipunkter)}")
 #print(optipunkter)
