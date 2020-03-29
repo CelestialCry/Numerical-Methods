@@ -27,6 +27,8 @@ def gradientDescent(F, x0, TOLx = 1e-14, TOLgrad = 1e-14, maxIter = 1000, h = 0.
         # gt = time.time()-gt
         if F(x1) > F(x0) - gamma/2*np.linalg.norm(g,2)**2:
             gamma = h*gamma
+        else:
+            gamma = 1/h*gamma
         if (np.linalg.norm(x1-x0,2) <= TOLx) or (np.linalg.norm(g,2) <= TOLgrad):
             break
         # st = time.time-st()
@@ -167,8 +169,11 @@ class Lagrange(Plottable):
         xs, ys = self.sep()
         self.max_dom, self.min_dom = max(xs), min(xs)
         # Everything above should make sense, everything below is a clusterfuck
-        λj = lambda j, ls, x: ys[j] * reduce(mul, [(x - arg) / (ls[j] - arg) for arg in ls if ls[j] != arg])
-        self.function = lambda x: sum([λj(i, xs, x) for i in range(len(xs))])
+        if len(xs) == 1:
+            self.function = lambda x: ys[0]
+        else:
+            λj = lambda j, ls, x: ys[j] * reduce(mul, [(x - arg) / (ls[j] - arg) for arg in ls if ls[j] != arg])
+            self.function = lambda x: sum([λj(i, xs, x) for i in range(len(xs))])
 
     def sep(self):
         """
@@ -542,7 +547,7 @@ class ErrorPiecewiseLagrange(ErrorCompare):
     plot() - overloaded
         plotting is overloaded to handle intervals rather than interpolation points
     """
-    __slots__ = ["K"]
+    __slots__ = ["K", "extras"]
 
     def __init__(self, function, mi, ma, n=10, k=10):
         """
@@ -561,9 +566,8 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         """
         super().__init__(function, mi, ma)
         self.N, self.K = n, k
-
-        # self.sqErr = [self.err2(self.N, k+2) for k in range(self.K)]
-        self.supErr = [self.errSup(self.N, k + 2) for k in range(self.K)]  # Fiks dette Thomas!
+        self.extras = [[self.errSup(self.N, (k+2, np)) for k in range(self.K)] for np in range(1,11)]
+        self.supErr = [self.errSup(self.N, (k+2, self.N)) for k in range(self.K)]  # Fiks dette Thomas!
 
     @functools.lru_cache(256)
     def genny(self, steps=None):
@@ -577,15 +581,20 @@ class ErrorPiecewiseLagrange(ErrorCompare):
         ----------
         Returns the piecewise Lagrange Polynomial
         """
-        intervals = np.linspace(self.min_dom, self.max_dom, steps)
+        intervals = np.linspace(self.min_dom, self.max_dom, steps[0])
         intervals = [(intervals[i], intervals[i + 1]) for i in range(len(intervals) - 1)]
-        pintervals = [equiNode(mi, ma, self.N, self.function) for (mi, ma) in intervals]
+        pintervals = [equiNode(mi, ma, steps[1], self.function) for (mi, ma) in intervals]
         return PiecewiseLagrange(pintervals)
+
+    def extraplot(self, *args, **kwargs):
+        for i in range(len(self.extras)):
+            plt.semilogy([k for k in range(1, self.K+1)], self.extras[i], *args, label = f"Sup Error with n ={i+1}", **kwargs)
+        plt.legend()
 
     def plot(self, *args, **kwargs):
         '''This is overloaded as we're plotting with another variable than the number of interpolation points'''
         # plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
-        plt.semilogy([self.N * i for i in range(2, self.K + 2)], self.supErr, *args, label="Sup Error", **kwargs)
+        plt.semilogy([self.N * i for i in range(1, self.K + 1)], self.supErr, *args, label=f"Sup Error with n={self.N}", **kwargs)
         plt.legend()
 
 class ErrorDescent(ErrorCompare):
@@ -638,33 +647,38 @@ plt.show()
 # print(f"Time taken: {stop - start}")
  """
 
-""" 
+
 # Task ii)
 # start = time.time()
-plt.figure()
-plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
-v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
-v.plot()
-(lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
-plt.legend()
+# plt.figure()
+# plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
+# v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
+# v.plot()
+# (lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
+# plt.legend()
 # plt.show()
 plt.figure()
 plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
 u.plot()
 plt.show()
- """
 
-""" 
-# Task iii)
+
+
+""" # Task iii)
+# plt.figure()
+# plt.axes(xlabel = "k - intervals", ylabel = "error")
+u = ErrorPiecewiseLagrange(a, 0, 1, 5, 400)
+# u.extraplot()
+# plt.show()
+
 plt.figure()
 plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
-u = ErrorPiecewiseLagrange(a, 0, 1, 5, 100)
 u.plot()
 # stop = time.time()
 plt.show()
-# print(f"Time taken: {stop-start}")
- """
+# print(f"Time taken: {stop-start}") """
+
 
 """ intervals = np.linspace(-5, 5, 10)
 intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
@@ -712,7 +726,7 @@ def cost_int(xs): # Hva er disse standarverdiene på N, a og b???
         s = s + (coq.f(xis[i])-g(xis[i]))**2 # Denne er brått raskere en min :sss
     return ((coq.b-coq.a)/coq.N)*s
 
-chebarray = np.array([x for x,_ in chebyNode(-1, 0, 100, runge)])
+# chebarray = np.array([x for x,_ in chebyNode(-1, 0, 100, runge)])
 # equiarray = equiX(-1, 1, 100)
 # print(cost_int(equiarray,3,runge,100,-1,1))
 
