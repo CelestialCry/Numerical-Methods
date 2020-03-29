@@ -1,5 +1,3 @@
-#encoding utf-8
-
 import matplotlib.pyplot as plt
 import autograd.numpy as np
 from autograd import jacobian, grad
@@ -12,7 +10,7 @@ import time
 from math import factorial
 
 
-def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 100, h = 0.9):
+def gradientDescent(F, x0, TOLx = 10e-7, TOLgrad = 10e-7, maxIter = 1000, h = 0.9):
     gamma = 1
     gradF = grad(F)
     x1 = x0
@@ -281,7 +279,6 @@ class DecentLagrange(Lagrange):
 
     def __init__(self, f, known, n):
         self.map = f
-        # self.map = pointsToDict(known)
         self.keys = [p[0] for p in known]
         self.n, self.N = n, len(known)
         self.min_dom, self.max_dom = min(self.keys), max(self.keys)
@@ -300,8 +297,6 @@ class DecentLagrange(Lagrange):
     def cost(self, nodes):
         p = Lagrange([(x, self.map(x)) for x in nodes])
         return (self.max_dom-self.min_dom)/self.N*sum([self.map(k) - p(k)**2 for k in self.keys])
-        # p = Lagrange([(lambda xxx: (xxx, self.map[xxx]))(self.choose(x)) for x in nodes])
-        # return (self.max_dom-self.min_dom)/self.N*sum([v - p(k)**2 for k,v in self.map.items()])
 
 def equiNode(start, end, step, f=(lambda x: 0)):
     """
@@ -596,7 +591,7 @@ class ErrorDecentLagrange(ErrorCompare):
     Description here
     """
 
-    __slots__ = ["knownEqui", "knownCheby", "t"]
+    __slots__ = ["knownEqui", "knownCheby", "t", "err22", "errSup2"]
 
     def __init__(self, f, mi, ma, N = 1000):
         """
@@ -605,8 +600,10 @@ class ErrorDecentLagrange(ErrorCompare):
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui, self.knownCheby = equiNode(mi, ma, N, f), chebyNode(mi, ma, N, f)
         self.t = "Equi"
-        err2, errSup = []
-        pass
+        err2, errSup = [self.err2(self.N, k+1) for k in range(10)], [self.errSup(self.N, k+1) for k in range(10)]
+        self.t = "Cheby"
+        err22, errSup2 = [self.err2(self.N, k+1) for k in range(10)], [self.errSup(self.N, k+1) for k in range(10)]
+
 
     @functools.lru_cache(256)
     def genny(self, steps = 1):
@@ -615,6 +612,7 @@ class ErrorDecentLagrange(ErrorCompare):
         elif self.t == "Cheby":
             return DecentLagrange(self.function, self.knownCheby, steps)
         return None
+
 
 class ErrRBF(ErrorCompare):
     __slots__ = ["a","b"]
@@ -642,6 +640,7 @@ class ErrRBF(ErrorCompare):
         plt.semilogy([i for i in range(2, self.N + 1)],self.sqErr, *args, label="sqrt Error", **kwargs)
         plt.semilogy([i for i in range(2, self.N + 1)], self.b, *args, label="sqrt Error", **kwargs)
         plt.legend()
+
 # This is supposed to be defined on [0,1]
 def a(x):
     return np.cos(2 * np.pi * x)
@@ -679,21 +678,20 @@ plt.legend()
 plt.figure()
 plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
-
 u.plot()
 plt.show()
  """
 
-
-""" # Task iii)
+""" 
+# Task iii)
 plt.figure()
 plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
 u = ErrorPiecewiseLagrange(a, 0, 1, 5, 100)
 u.plot()
 # stop = time.time()
 plt.show()
-# print(f"Time taken: {stop-start}") """
-
+# print(f"Time taken: {stop-start}")
+ """
 
 """ intervals = np.linspace(-5, 5, 10)
 intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
@@ -704,15 +702,12 @@ a.plot()
 plt.show()
 """
 
-
-""" test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
-swapper = gradientDescent(test.cost, test.points)
-test.changeBasis(swapper)
- """
-
 """
-r = Plottable(runge)
-r.plot(-5, 5)
+test = DecentLagrange(a, equiNode(0, 1, 1000, a), 10)
+xs = [x for x,_ in test.points]
+swapper = gradientDescent(test.cost, xs)
+test.changeBasis(swapper)
+test.plot()
 """
 
 #task v
@@ -764,3 +759,6 @@ plt.show()
 #optipunkter = gradientDescent(cost_int, chebarray)
 #print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(optipunkter)}")
 #print(optipunkter)
+#coq(3, runge, 100, -1, 1)
+
+#print(f"Bedre?\n{cost_int(chebarray)} >= {cost_int(gradientDescent(cost_int, chebarray))}")
