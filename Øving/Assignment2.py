@@ -4,13 +4,32 @@ from autograd import jacobian, grad
 from operator import mul
 from functools import reduce
 import functools
-import random
-# import _thread as thread
 import time
-from math import factorial, floor
-import math
+from math import factorial
 
 def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000):
+    """
+    An implementation of gradient descent with backtracking
+
+    Parameters
+    ----------
+    F :: Scalar function
+        The function to optimize
+    x0 :: NumPy array of doubles
+        Start variable for fixed point iteration
+    γ :: Double
+        Scaling parameter
+    ρ :: Double
+        hyperparameter
+    σ : Double
+        hyperparameter
+    TOL :: Double
+    maxIter :: Int
+
+    Returns
+    ----------
+    Returns a NumPy array where F is minimal
+    """
     gradF = grad(F)
     x1 = x0
     φ = F(x1)
@@ -648,14 +667,41 @@ class ErrorPiecewiseLagrange(ErrorCompare):
 
 class ErrorDescent(ErrorCompare):
     """
-    Description here
+    Class for comparing the Optimized Lagrange Interpolation with the original function
+    Super-Class
+    ----------
+    Plottable -> ErrorCompare
+    Attributes
+    ----------
+    v :: String
+        The type of node-spread to start with (Not fully implemented)
+    knownEqui :: [(Double,Double)]
+        A list of the points we know
+    Methods
+    ----------
+    genny(steps = None) - overloaded
+        A generator function for finding fitting interpolations
+    plot() - Overloaded
+            This only plots the relevant data
     """
 
     __slots__ = ["v", "knownEqui"]
 
     def __init__(self, f, mi, ma, N = 1000, v = "Equi"):
         """
-        Description here
+        Class constructor, has no default constructor
+        Parameters
+        ----------
+        f :: Function
+            The function to approximate
+        mi :: Double
+            start of test interval
+        ma :: Double
+            end of test interval
+        N :: Int
+            number of known nodes
+        v :: nodespread
+            not yet fully implemented
         """
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui = equiNode(mi, ma, N, f)
@@ -663,8 +709,17 @@ class ErrorDescent(ErrorCompare):
         self.sqErr = [self.err2(self.N, k+1) for k in range(20)]
 
 
-    @functools.lru_cache(256)
     def genny(self, steps = 1):
+        """
+        The generator function
+        Parameters
+        ----------
+        steps :: Int
+            The amount of nodes to interpolate with
+        Returns 
+        ----------
+        Returns an optimized Lagrange polynomial
+        """
         if self.v == "Equi":
             return DescentLagrange(self.knownEqui, steps)
         elif self.v == "Cheby":
@@ -672,19 +727,55 @@ class ErrorDescent(ErrorCompare):
         return None
 
     def plot(self, *args, **kwargs):
+        """
+        function for plotting, overloaded from Plottable
+        Parameters
+        ----------
+        *args :: *args
+            arguments from plt.plot()
+        **kwargs :: **kwargs
+            keywordarguments from plt.plot()
+        """
         plt.semilogy(range(1, 21), self.sqErr, *args, label="Descent - Square Error", *kwargs)
         plt.legend()
 
 class ErrorDescentLegacy(ErrorCompare):
     """
-    Description here
+    Class for comparing the Optimized Lagrange Interpolation with the original function
+    Super-Class
+    ----------
+    Plottable -> ErrorCompare
+    Attributes
+    ----------
+    v :: String
+        The type of node-spread to start with (Not fully implemented)
+    knownEqui :: [(Double,Double)]
+        A list of the points we know
+    Methods
+    ----------
+    genny(steps = None) - overloaded
+        A generator function for finding fitting interpolations
+    plot() - Overloaded
+            This only plots the relevant data
     """
 
     __slots__ = ["v", "knownEqui"]
 
     def __init__(self, f, mi, ma, N = 1000, v = "Equi"):
         """
-        Description here
+        Class constructor, has no default constructor
+        Parameters
+        ----------
+        f :: Function
+            The function to approximate
+        mi :: Double
+            start of test interval
+        ma :: Double
+            end of test interval
+        N :: Int
+            number of known nodes
+        v :: nodespread
+            not yet fully implemented
         """
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui = equiX(mi, ma, N)
@@ -692,8 +783,17 @@ class ErrorDescentLegacy(ErrorCompare):
         self.sqErr = [self.err2(self.N, k+1) for k in range(20)]
 
 
-    @functools.lru_cache(256)
     def genny(self, steps = 1):
+        """
+        The generator function
+        Parameters
+        ----------
+        steps :: Int
+            The amount of nodes to interpolate with
+        Returns 
+        ----------
+        Returns an optimized Lagrange polynomial
+        """
         if self.v == "Equi":
             return DescentLagrangeLegacy(self.function, self.knownEqui, steps)
         elif self.v == "Cheby":
@@ -701,19 +801,72 @@ class ErrorDescentLegacy(ErrorCompare):
         return None
 
     def plot(self, *args, **kwargs):
+        """
+        function for plotting, overloaded from Plottable
+        Parameters
+        ----------
+        *args :: *args
+            arguments from plt.plot()
+        **kwargs :: **kwargs
+            keywordarguments from plt.plot()
+        """
         plt.semilogy(range(1, 21), self.sqErr, *args, label="Descent Legacy - Square Error", *kwargs)
         plt.legend()
 
 class ErrRBF(ErrorCompare):
+    """
+    Class for comparing the Radial Basis Function Interpolation to the true function
+    Super-Class
+    ----------
+    Plottable -> ErrorCompare
+    Attributes
+    ----------
+    a :: Int
+        A variable acting as the switch argument in other programming languages
+    b :: [Double]
+        List of 2 norm error for non-optimized RBF Interpolation
+    Methods
+    ----------
+    genny(steps = None) - overloaded
+        A generator functionfor finding fitting interpolations
+    plot() - overloaded
+        This only plots relevant data
+    """
+
     __slots__ = ["a","b"]
+
     def __init__(self, f, mi, ma, n = 10):
+        """
+        Class constructor, has no defualt constructor
+        Paramters
+        ----------
+        f :: Function
+            A real function
+        mi :: Double
+            start of test intervall
+        ma :: Double
+            end of test intervall
+        n :: Int
+            the amount of nodes to interpolate on
+        """
         super().__init__(f, mi ,ma, n)
         self.N = n
         self.a = 0
         self.sqErr = [self.err2(self.N,h+1) for h in range(2,n+1)]
         self.a = 1
         self.b = [self.err2(self.N, h+1) for h in range(2,n+1)]
+
     def genny(self, steps=None):
+        """
+        The generator function
+        Parameters
+        ----------
+        steps = None
+            the amount of interpolation nodes
+        Returns
+        ----------
+        Returns the fitting interpolation
+        """"
         coq(self.function, steps, self.min_dom, self.max_dom)
 #        xs = equiX(self.min_dom,self.max_dom,steps)
         xs = chebyX(self.min_dom,self.max_dom,steps)
@@ -725,6 +878,7 @@ class ErrRBF(ErrorCompare):
         elif self.a == 1:
             g = interpolation(xs)
             return Plottable(g,self.min_dom,self.max_dom)
+
     def plot(self, *args, **kwargs):
         '''This is overloaded as we're plotting with another variable than the number of interpolation points'''
         # plt.semilogy(range(2, self.K+2), self.sqErr, label = "Square Error")
@@ -764,14 +918,13 @@ def chebyX(start, end, steps):
 
 # # Task ii)
 # # ---------------------------------
-# # start = time.time()
-# # plt.figure()
-# # plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
-# # v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
-# # v.plot()
-# # (lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
-# # plt.legend()
-# # plt.show()
+# plt.figure()
+# plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
+# v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
+# v.plot()
+# (lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
+# plt.legend()
+# plt.show()
 # plt.figure()
 # plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 # u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
@@ -782,18 +935,16 @@ def chebyX(start, end, steps):
 
 # # Task iii)
 # # ---------------------------------
-# # plt.figure()
-# # plt.axes(xlabel = "k - intervals", ylabel = "error")
+# plt.figure()
+# plt.axes(xlabel = "k - intervals", ylabel = "error")
 # u = ErrorPiecewiseLagrange(a, 0, 1, 5, 400)
-# # u.extraplot()
-# # plt.show()
+# u.extraplot()
+# plt.show()
 
 # plt.figure()
 # plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
 # u.plot()
-# # stop = time.time()
 # plt.show()
-# # print(f"Time taken: {stop-start}")
 
 
 # intervals = np.linspace(-5, 5, 10)
@@ -805,20 +956,20 @@ def chebyX(start, end, steps):
 # plt.show()
 
 
-#Task iv)
-# ---------------------------------
-# Creating the plot with the interpolations, bot legacy method and true method
-d = ErrorDescentLegacy(a, 0, 1)
-e = ErrorDescent(a, 0, 1)
-a = ErrorLagrange(a, 0, 1)
-b = ErrorLagrange(a, 0, 1, v = "Cheby")
-plt.figure()
-plt.axes(xlabel = "n - nodes", ylabel = "error")
-d.plot()
-e.plot()
-a.plot2()
-b.plot2()
-plt.show() 
+# #Task iv)
+# # ---------------------------------
+# # Creating the plot with the interpolations, bot legacy method and true method
+# d = ErrorDescentLegacy(a, 0, 1)
+# e = ErrorDescent(a, 0, 1)
+# a = ErrorLagrange(a, 0, 1)
+# b = ErrorLagrange(a, 0, 1, v = "Cheby")
+# plt.figure()
+# plt.axes(xlabel = "n - nodes", ylabel = "error")
+# d.plot()
+# e.plot()
+# a.plot2()
+# b.plot2()
+# plt.show() 
 
 
 # # Creating a plot of interpolated with error descent
