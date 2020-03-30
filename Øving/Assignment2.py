@@ -7,7 +7,8 @@ import functools
 import random
 # import _thread as thread
 import time
-from math import factorial
+from math import factorial, floor
+import math
 
 def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000):
     gradF = grad(F)
@@ -29,13 +30,6 @@ def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000
         if np.linalg.norm(x1-χ) <= TOL or np.linalg.norm(g) <= TOL:
             break
     return x1
-
-def tuplesToDict(tuples):
-    d = {}
-    for p in tuples:
-        d[p[0]] = p[1]
-    return d
-
 
 class Plottable():
     """
@@ -280,6 +274,60 @@ class DescentLagrange(Plottable):
         Calculates a cost of producing the Lagrange polynomial with the given set of points
     """
 
+    __slots__ = ["xsKnown", "ysKnown", "N", "n"]
+
+    def __init__(self, known, n):
+        self.n = n
+        self.xsKnown, self.ysKnown = np.array([x for x,_ in known]), np.array([y for _,y in known])
+        self.min_dom, self.max_dom, self.N = min(self.xsKnown), max(self.xsKnown), len(self.xsKnown)
+
+        def cost(xs):
+            p = self.inter(xs)
+            const = (self.max_dom-self.min_dom)/self.N
+            s = 0
+            for x in self.xsKnown:
+                s = s + (self.pwf(x)-p(x))**2
+            return const*s
+
+        startNodes = equiX(self.min_dom, self.max_dom, self.n)
+        bestNodes = gradientDescent(cost, startNodes)
+        self.function = self.inter(bestNodes)
+
+    def pwf(self, x):
+        for i in range(self.N-1):
+            if self.xsKnown[i] >= x:
+                a = (self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])
+                return a*x+self.ysKnown[i]-a*self.xsKnown[i]
+        i = 0
+        return (self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])*x+self.ysKnown[i]-(self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])
+
+    def inter(self, xs):
+        ys = list(map(self.pwf, xs))
+        λj = lambda j, ls, x: ys[j]*reduce(mul, [(x-arg)/(ls[j]-arg) for arg in ls if ls[j] != arg])
+        return lambda x: sum([λj(i, xs, x) for i in range(len(xs))])
+
+class DescentLagrangeLegacy(Plottable):
+    """
+    A wrapper for Lagrange polynomials where we know some points of the function.
+    Super-Class
+    ----------
+    Plottable -> Lagrange
+    Attributes
+    ----------
+    map :: {Double, Double}
+        A dictionary of the known values (See Map object)
+    keys :: [Double]
+        The keys to the dictionary
+    n :: Int
+        Number of interpolation nodes
+    N :: Int
+        Number of known points of the function
+    Method
+    ----------
+    cost(points)
+        Calculates a cost of producing the Lagrange polynomial with the given set of points
+    """
+
     __slots__ = ["f", "xsKnown", "N", "n"]
 
     def __init__(self, f, xsKnown, n):
@@ -290,8 +338,6 @@ class DescentLagrange(Plottable):
         def cost(xs):
             p = self.inter(xs)
             return (self.max_dom-self.min_dom)/self.N*sum([(self.f(x)-p(x))**2 for x in self.xsKnown])
-
-        # print(grad(cost)(equiX(self.min_dom, self.max_dom, self.n)))
 
         bestNodes = gradientDescent(cost, equiX(self.min_dom, self.max_dom, self.n), 10)
         self.function = self.inter(bestNodes)
@@ -612,6 +658,35 @@ class ErrorDescent(ErrorCompare):
         Description here
         """
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
+        self.knownEqui = equiNode(mi, ma, N, f)
+        self.v = "Equi"
+        self.sqErr = [self.err2(self.N, k+1) for k in range(10)]
+
+
+    @functools.lru_cache(256)
+    def genny(self, steps = 1):
+        if self.v == "Equi":
+            return DescentLagrange(self.knownEqui, steps)
+        elif self.v == "Cheby":
+            return DescentLagrange(self.function, self.knownCheby, steps)
+        return None
+
+    def plot(self, *args, **kwargs):
+        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent - Square Error", *kwargs)
+        plt.legend()
+
+class ErrorDescentLegacy(ErrorCompare):
+    """
+    Description here
+    """
+
+    __slots__ = ["v", "knownEqui"]
+
+    def __init__(self, f, mi, ma, N = 1000, v = "Equi"):
+        """
+        Description here
+        """
+        self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui = equiX(mi, ma, N)
         self.v = "Equi"
         self.sqErr = [self.err2(self.N, k+1) for k in range(10)]
@@ -620,13 +695,13 @@ class ErrorDescent(ErrorCompare):
     @functools.lru_cache(256)
     def genny(self, steps = 1):
         if self.v == "Equi":
-            return DescentLagrange(self.function, self.knownEqui, steps)
+            return DescentLagrangeLegacy(self.function, self.knownEqui, steps)
         elif self.v == "Cheby":
-            return DescentLagrange(self.function, self.knownCheby, steps)
+            return DescentLagrangeLegacy(self.function, self.knownCheby, steps)
         return None
 
     def plot(self, *args, **kwargs):
-        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent - Square Error", *kwargs)
+        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent Legacy - Square Error", *kwargs)
         plt.legend()
 
 class ErrRBF(ErrorCompare):
@@ -657,6 +732,8 @@ class ErrRBF(ErrorCompare):
         plt.semilogy([i for i in range(2, self.N + 1)], self.b, *args, label="sqrt Error  w/o grad Descent", **kwargs)
         plt.legend()
 
+# Functions we use
+# ---------------------------------
 # This is supposed to be defined on [0,1]
 def a(x):
     return np.cos(2 * np.pi * x)
@@ -667,75 +744,88 @@ def b(x):
     return np.exp(3 * x) * np.sin(2 * x)
 def chebyX(start, end, steps):
   return [(end - start) / 2 * (np.cos(np.pi * (2 * x + 1) / (2 * steps))) + (end + start) / 2 for x in range(steps)]
-""" 
-# Task i)
-start = time.time()
-plt.figure()
-plt.axes(xlabel = "x", ylabel = "y")
-r = Lagrange(chebyNode(-5, 5, 10, runge))
-r.plot(label = "Cheby")
-p = Lagrange(equiNode(-5, 5, 10, runge))
-p.plot(label = "Equi")
-plt.legend()
-# stop = time.time()
-plt.show()
-# print(f"Time taken: {stop - start}")
- """
 
 
-""" # Task ii)
+# # Task i)
+# # ---------------------------------
 # start = time.time()
 # plt.figure()
-# plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
-# v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
-# v.plot()
-# (lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
+# plt.axes(xlabel = "x", ylabel = "y")
+# r = Lagrange(chebyNode(-5, 5, 10, runge))
+# r.plot(label = "Cheby")
+# p = Lagrange(equiNode(-5, 5, 10, runge))
+# p.plot(label = "Equi")
 # plt.legend()
+# # stop = time.time()
 # plt.show()
-plt.figure()
-plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
-u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
-u.plot2()
-plt.show() """
+# # print(f"Time taken: {stop - start}")
 
 
 
-""" # Task iii)
+# # Task ii)
+# # ---------------------------------
+# # start = time.time()
+# # plt.figure()
+# # plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
+# # v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
+# # v.plot()
+# # (lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
+# # plt.legend()
+# # plt.show()
 # plt.figure()
-# plt.axes(xlabel = "k - intervals", ylabel = "error")
-u = ErrorPiecewiseLagrange(a, 0, 1, 5, 400)
-# u.extraplot()
+# plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
+# u = ErrorLagrange(b, 0, np.pi/4, 20) #Interpolating the second function
+# u.plot2()
 # plt.show()
 
-plt.figure()
-plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
-u.plot()
-# stop = time.time()
-plt.show()
-# print(f"Time taken: {stop-start}") """
 
 
-""" intervals = np.linspace(-5, 5, 10)
-intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
-pintervals = [equiNode(mi, ma, 4, runge) for (mi, ma) in intervals]
-a = PiecewiseLagrange(pintervals)
-plt.figure()
-a.plot()
-plt.show()
-"""
+# # Task iii)
+# # ---------------------------------
+# # plt.figure()
+# # plt.axes(xlabel = "k - intervals", ylabel = "error")
+# u = ErrorPiecewiseLagrange(a, 0, 1, 5, 400)
+# # u.extraplot()
+# # plt.show()
+
+# plt.figure()
+# plt.axes(xlabel = "n - discretization nodes", ylabel = "error")
+# u.plot()
+# # stop = time.time()
+# plt.show()
+# # print(f"Time taken: {stop-start}")
 
 
-# sta = time.time()
-d = ErrorDescent(a, 0, 1)
+# intervals = np.linspace(-5, 5, 10)
+# intervals = [(intervals[i], intervals[i+1]) for i in range(len(intervals)-1)]
+# pintervals = [equiNode(mi, ma, 4, runge) for (mi, ma) in intervals]
+# a = PiecewiseLagrange(pintervals)
+# plt.figure()
+# a.plot()
+# plt.show()
+
+
+#Task iv)
+# ---------------------------------
+# Creating the plot with the interpolations, bot legacy method and true method
+d = ErrorDescentLegacy(a, 0, 1)
+e = ErrorDescent(a, 0, 1)
 a = ErrorLagrange(a, 0, 1)
 b = ErrorLagrange(a, 0, 1, v = "Cheby")
-# print(time.time()-sta)
 plt.figure()
 plt.axes(xlabel = "n - nodes", ylabel = "error")
 d.plot()
+e.plot()
 a.plot2()
 b.plot2()
-plt.show()
+plt.show() 
+
+
+# # Creating a plot of interpolated with error descent
+# ps = equiNode(0, 1, 100, a)
+# d = DescentLagrange(ps, 20)
+# print(d)
+
 
 #task v
 # ---------------------------------
@@ -746,8 +836,8 @@ def phi(r,e=3):
     return np.exp(-(e * r) ** 2)
     
 
-def Get_w(x):
-    M = np.array([[phi(abs(x[i]-x[j])) for j in range(len(x))] for i in range(len(x))], dtype = float)
+def Get_w(x, e=3):
+    M = np.array([[phi(abs(x[i]-x[j]),e) for j in range(len(x))] for i in range(len(x))], dtype = float)
     f_vec = np.array([coq.f(x[i]) for i in range(len(x))])
     ws = np.linalg.solve(M, f_vec)
     # w = np.multiply(np.linalg.inv(M), f_vec)
