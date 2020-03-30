@@ -511,8 +511,8 @@ class ErrorCompare(Plottable):
 
     def plot(self, *args, **kwargs):
         '''Ploting the 2-norm and sup-norm as a function of the number of interpolations points used.'''
-        plt.semilogy(range(2, self.N + 1), self.sqErr, *args, label="Square Error", *kwargs)
-        plt.semilogy(range(2, self.N + 1), self.supErr, *args, label="Sup Error", *kwargs)
+        plt.semilogy(range(1, self.N + 1), self.sqErr, *args, label="Square Error", *kwargs)
+        plt.semilogy(range(1, self.N + 1), self.supErr, *args, label="Sup Error", *kwargs)
         plt.legend()
 
     def plot2(self, *args, **kwargs):
@@ -537,7 +537,7 @@ class ErrorLagrange(ErrorCompare):
     """
     __slots__ = ["v"]
 
-    def __init__(self, function, mi, ma, n=10, v="Equi"):
+    def __init__(self, function, mi, ma, n=20, v="Equi"):
         """
         Class constructor, has not a default constructor.
         Parameters
@@ -556,7 +556,7 @@ class ErrorLagrange(ErrorCompare):
         super().__init__(function, mi, ma, n)
         self.v = v
         self.N = n
-        self.sqErr, self.supErr = [self.err2(self.N, m + 1) for m in range(1, n)], [self.errSup(self.N, m + 1) for m in range(1, n)]
+        self.sqErr, self.supErr = [self.err2(self.N, m) for m in range(1, n+1)], [self.errSup(self.N, m) for m in range(1, n+1)]
 
     @functools.lru_cache(256)
     def genny(self, steps=None):
@@ -660,7 +660,7 @@ class ErrorDescent(ErrorCompare):
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui = equiNode(mi, ma, N, f)
         self.v = "Equi"
-        self.sqErr = [self.err2(self.N, k+1) for k in range(10)]
+        self.sqErr = [self.err2(self.N, k+1) for k in range(20)]
 
 
     @functools.lru_cache(256)
@@ -672,7 +672,7 @@ class ErrorDescent(ErrorCompare):
         return None
 
     def plot(self, *args, **kwargs):
-        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent - Square Error", *kwargs)
+        plt.semilogy(range(1, 21), self.sqErr, *args, label="Descent - Square Error", *kwargs)
         plt.legend()
 
 class ErrorDescentLegacy(ErrorCompare):
@@ -689,7 +689,7 @@ class ErrorDescentLegacy(ErrorCompare):
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui = equiX(mi, ma, N)
         self.v = "Equi"
-        self.sqErr = [self.err2(self.N, k+1) for k in range(10)]
+        self.sqErr = [self.err2(self.N, k+1) for k in range(20)]
 
 
     @functools.lru_cache(256)
@@ -701,7 +701,7 @@ class ErrorDescentLegacy(ErrorCompare):
         return None
 
     def plot(self, *args, **kwargs):
-        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent Legacy - Square Error", *kwargs)
+        plt.semilogy(range(1, 21), self.sqErr, *args, label="Descent Legacy - Square Error", *kwargs)
         plt.legend()
 
 class ErrRBF(ErrorCompare):
