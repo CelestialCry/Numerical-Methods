@@ -5,7 +5,45 @@ from operator import mul
 from functools import reduce
 import functools
 import time
-from math import factorial
+from math import factorial, floor
+
+def binarySearch(array, searchFor):
+    """
+    Binary search adapted to lower the worst case runtime for pwf from N to lg(N)
+    Parameters
+    ----------
+    array :: [Double]
+    searchFor :: Double
+    Returns
+    ----------
+    Returns the index i where search for is greater than array[i], but less than array[i+1], if these exist
+    """
+    minIndex = 0
+    m = len(array) - 1
+    maxIndex = m
+    midIndex = floor((minIndex + maxIndex)/2)
+
+    while maxIndex >= minIndex:
+        midIndex = floor((minIndex + maxIndex)/2)
+        
+        if midIndex == m:
+            return m
+        
+        v = array[midIndex]
+
+        if searchFor < v:
+            maxIndex = midIndex - 1
+
+        elif searchFor > v:
+            minIndex = midIndex + 1
+
+        elif searchFor == v:
+            return midIndex
+
+
+    if v <= searchFor <= array[midIndex+1]:
+        return midIndex
+    return midIndex-1
 
 def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000):
     """
@@ -121,6 +159,7 @@ class Plottable():
         plt.figure()
         self.plot()
         plt.show()
+        return "printed!"
 
     def __call__(self, *args):  # Function calling overloading
         return self.function(*args)
@@ -312,13 +351,19 @@ class DescentLagrange(Plottable):
         bestNodes = gradientDescent(cost, startNodes)
         self.function = self.inter(bestNodes)
 
+    @functools.lru_cache(256)
     def pwf(self, x):
-        for i in range(self.N-1):
-            if self.xsKnown[i] >= x:
-                a = (self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])
-                return a*x+self.ysKnown[i]-a*self.xsKnown[i]
-        i = 0
-        return (self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])*x+self.ysKnown[i]-(self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])
+        i = binarySearch(self.xsKnown, x)
+        if i >= self.N-1:
+            i = self.N-2
+        a = (self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])
+        return a*x+self.ysKnown[i]-a*self.xsKnown[i]
+        # for i in range(self.N-1):
+        #     if self.xsKnown[i] >= x:
+        #         a = (self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])
+        #         return a*x+self.ysKnown[i]-a*self.xsKnown[i]
+        # i = 0
+        # return (self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])*x+self.ysKnown[i]-(self.ysKnown[i+1]-self.ysKnown[i])/(self.xsKnown[i+1]-self.xsKnown[i])
 
     def inter(self, xs):
         ys = list(map(self.pwf, xs))
@@ -956,26 +1001,28 @@ def chebyX(start, end, steps):
 # plt.show()
 
 
-#Task iv)
-# ---------------------------------
-# Creating the plot with the interpolations, bot legacy method and true method
-# d = ErrorDescentLegacy(a, 0, 1)
-e = ErrorDescent(a, 0, 1)
-a = ErrorLagrange(a, 0, 1)
-b = ErrorLagrange(a, 0, 1, v = "Cheby")
-plt.figure()
-plt.axes(xlabel = "n - nodes", ylabel = "error")
-# d.plot()
-e.plot()
-a.plot2()
-b.plot2()
-plt.show() 
+# #Task iv)
+# # ---------------------------------
+# # Creating the plot with the interpolations, bot legacy method and true method
+# # d = ErrorDescentLegacy(a, 0, 1)
+# e = ErrorDescent(a, 0, 1)
+# a = ErrorLagrange(a, 0, 1)
+# b = ErrorLagrange(a, 0, 1, v = "Cheby")
+# plt.figure()
+# plt.axes(xlabel = "n - nodes", ylabel = "error")
+# # d.plot()
+# e.plot()
+# a.plot2()
+# b.plot2()
+# plt.show() 
 
 
-# # Creating a plot of interpolated with error descent
-# ps = equiNode(0, 1, 100, a)
-# d = DescentLagrange(ps, 20)
-# print(d)
+# Creating a plot of interpolated with error descent
+ps = equiNode(0, 1, 20, a)
+xs = equiX(0,1,20)
+c = DescentLagrangeLegacy(a, xs, 10)
+# d = DescentLagrange(ps, 10)
+print(c)
 
 
 #task v
