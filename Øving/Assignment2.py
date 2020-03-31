@@ -535,7 +535,7 @@ class ErrorCompare(Plottable):
         plt.legend()
 
     def plot2(self, *args, **kwargs):
-        plt.semilogy(range(2, self.N + 1), self.sqErr, *args, label=f"Square Error with {self.v}nodes", *kwargs)
+        plt.semilogy(range(1, self.N + 1), self.sqErr, *args, label=f"Square Error with {self.v}nodes", *kwargs)
         plt.legend()
 
 
@@ -866,7 +866,7 @@ class ErrRBF(ErrorCompare):
         Returns
         ----------
         Returns the fitting interpolation
-        """"
+        """
         coq(self.function, steps, self.min_dom, self.max_dom)
 #        xs = equiX(self.min_dom,self.max_dom,steps)
         xs = chebyX(self.min_dom,self.max_dom,steps)
@@ -902,16 +902,16 @@ def chebyX(start, end, steps):
 
 # # Task i)
 # # ---------------------------------
-# start = time.time()
-# plt.figure()
-# plt.axes(xlabel = "x", ylabel = "y")
-# r = Lagrange(chebyNode(-5, 5, 10, runge))
-# r.plot(label = "Cheby")
-# p = Lagrange(equiNode(-5, 5, 10, runge))
-# p.plot(label = "Equi")
-# plt.legend()
+# # start = time.time()
+# # plt.figure()
+# # plt.axes(xlabel = "x", ylabel = "y")
+# # r = Lagrange(chebyNode(-5, 5, 10, runge))
+# # r.plot(label = "Cheby")
+# # p = Lagrange(equiNode(-5, 5, 10, runge))
+# # p.plot(label = "Equi")
+# # plt.legend()
 # # stop = time.time()
-# plt.show()
+# # plt.show()
 # # print(f"Time taken: {stop - start}")
 
 
@@ -922,7 +922,7 @@ def chebyX(start, end, steps):
 # plt.axes(xlabel = "n - Interpolation nodes", ylabel = "error")
 # v = ErrorLagrange(a, 0, 1, n = 20) #Interpolating the first function
 # v.plot()
-# (lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(2,21))
+# (lambda ns: plt.plot(ns, list(map(lambda n: (2*np.pi)**(n+1)/factorial(n+1), ns)), 'b', label = "Theoretic bound"))(range(1,21))
 # plt.legend()
 # plt.show()
 # plt.figure()
@@ -956,20 +956,20 @@ def chebyX(start, end, steps):
 # plt.show()
 
 
-# #Task iv)
-# # ---------------------------------
-# # Creating the plot with the interpolations, bot legacy method and true method
+#Task iv)
+# ---------------------------------
+# Creating the plot with the interpolations, bot legacy method and true method
 # d = ErrorDescentLegacy(a, 0, 1)
-# e = ErrorDescent(a, 0, 1)
-# a = ErrorLagrange(a, 0, 1)
-# b = ErrorLagrange(a, 0, 1, v = "Cheby")
-# plt.figure()
-# plt.axes(xlabel = "n - nodes", ylabel = "error")
+e = ErrorDescent(a, 0, 1)
+a = ErrorLagrange(a, 0, 1)
+b = ErrorLagrange(a, 0, 1, v = "Cheby")
+plt.figure()
+plt.axes(xlabel = "n - nodes", ylabel = "error")
 # d.plot()
-# e.plot()
-# a.plot2()
-# b.plot2()
-# plt.show() 
+e.plot()
+a.plot2()
+b.plot2()
+plt.show() 
 
 
 # # Creating a plot of interpolated with error descent
