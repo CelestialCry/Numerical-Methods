@@ -1027,33 +1027,37 @@ def chebyX(start, end, steps):
 # plt.show()
 
 
-#Task iv)
-# ---------------------------------
-# Creating the plot with the interpolations, bot legacy method and true method
-# d = ErrorDescentLegacy(a, 0, 1)
-st = time.time()
-e = ErrorDescent(a, 0, 1)
-print(f"time:{time.time()-st}")
-a = ErrorLagrange(a, 0, 1)
-b = ErrorLagrange(a, 0, 1, v = "Cheby")
-plt.figure()
-plt.axes(xlabel = "n - nodes", ylabel = "error")
-# d.plot()
-e.plot()
-a.plot2()
-b.plot2()
-plt.show() 
-
-
-# # # Creating a plot of interpolated with error descent
+# #Task iv)
+# # ---------------------------------
+# # Creating the plot with the interpolations, bot legacy method and true method
+# # d = ErrorDescentLegacy(a, 0, 1)
 # st = time.time()
-# ps = equiNode(0, 1, 100, a)
-# # xs = equiX(0,1,20)
-# c = DescentLagrange(ps, 10)
-# # # d = DescentLagrange(ps, 10)
+# e = ErrorDescent(a, 0, 1)
 # print(f"time:{time.time()-st}")
-# print(c)
+# a = ErrorLagrange(a, 0, 1)
+# b = ErrorLagrange(a, 0, 1, v = "Cheby")
+# plt.figure()
+# plt.axes(xlabel = "n - nodes", ylabel = "error")
+# # d.plot()
+# e.plot()
+# a.plot2()
+# b.plot2()
+# plt.show() 
 
+
+# # Creating a plot of interpolated with error descent
+sts = []
+for i in range(5,21):
+    st = time.time()
+    ps = equiNode(0, 1, 1000, a)
+    c = DescentLagrange(ps, i)
+    st = time.time() - st
+    sts.append(st)
+
+with open("tests.txt","w") as file:
+    for data in sts:
+        file.write(f"data{}")
+    pass
 
 #task v
 # ---------------------------------
