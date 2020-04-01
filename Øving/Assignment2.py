@@ -45,48 +45,25 @@ def binarySearch(array, searchFor):
         return midIndex
     return midIndex-1
 
-def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000):
+def meanValDiff(f, a, b):
     """
-    An implementation of gradient descent with backtracking
-
+    One dimensional differentiation based on the mean value theorem
     Parameters
     ----------
-    F :: Scalar function
-        The function to optimize
-    x0 :: NumPy array of doubles
-        Start variable for fixed point iteration
-    γ :: Double
-        Scaling parameter
-    ρ :: Double
-        hyperparameter
-    σ : Double
-        hyperparameter
-    TOL :: Double
-    maxIter :: Int
-
+    f :: Scalar Function
+    a :: Start
+    b :: End
     Returns
     ----------
-    Returns a NumPy array where F is minimal
+    Returns the derivative of f along the line passing through a and b
     """
-    gradF = grad(F)
-    x1 = x0
-    φ = F(x1)
-    for m in range(maxIter):
-        # print(f"m:{m}")
-        χ = x0
-        g = gradF(x1)
-        for n in range(maxIter):
-            # print(f"n:{n}")
-            x1 = x0 - 1/γ*g
-            ψ = F(x1)
-            if ψ <= φ + np.dot(g,x1-x0)+γ/2*np.linalg.norm(x1-x0)**2:
-                x0, φ, γ = x1, ψ, ρ*γ
-                break
-            else:
-                γ = σ*γ
-        if np.linalg.norm(x1-χ) <= TOL or np.linalg.norm(g) <= TOL:
-            break
-    return x1
+    return (f(b)-f(a))/np.linalg.norm(b-a)
+
+def meanValGrad(f, x, h = 1e-4):
+    """
+    Gradient based on the mean value theorem
+    """
+    return np.array([meanValDiff(f, np.array([x[j]-h if i == j else x[j] for j in range(len(x))]), np.array([x[j]+h if i == j else x[j] for j in range(len(x))])) for i in range(len(x))])
 
 class Plottable():
     """
@@ -115,7 +92,7 @@ class Plottable():
     print()
         Can use print to create and show plot
     """
-    __slots__ = ["function", "max_dom", "min_dom"]
+    __slots__ = ["function", "max_dom", "min_dom", "history"]
 
     def __init__(self, function=lambda x: 0, mi=0, ma=1):
         """
@@ -129,7 +106,7 @@ class Plottable():
         ma :: Double
             End of interval
         """
-        self.function, self.max_dom, self.min_dom = function, ma, mi
+        self.function, self.max_dom, self.min_dom, self.history = function, ma, mi, []
 
     def plot(self, *args, start=None, end=None, step=500, **kwargs):
         """
@@ -164,21 +141,67 @@ class Plottable():
     def __call__(self, *args):  # Function calling overloading
         return self.function(*args)
 
-    def diff(self, n):
+    def diff(self):
         """
         Differentiation method using jacobian from autograd
-        Parameters
-        ----------
-        n :: Int
-            Number of times to differentiate the wrapped function
         Returns
         ----------
         Returns the differentiated function
         """
-        n = self.function
-        for i in range(n):
-            n = jacobian(n)
-        return n
+        return grad(self.function)
+
+class AltDiff(Plottable):
+
+    def __init__(self, f, start, end):
+        super().__init__(f, start, end)
+
+    def diff(self):
+        return lambda x: meanValGrad(self.function, x, h = 1e-4)
+
+def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000):
+    """
+    An implementation of gradient descent with backtracking
+
+    Parameters
+    ----------
+    F :: Scalar function as a Plottable
+        The function to optimize
+    x0 :: NumPy array of doubles
+        Start variable for fixed point iteration
+    γ :: Double
+        Scaling parameter
+    ρ :: Double
+        hyperparameter
+    σ : Double
+        hyperparameter
+    TOL :: Double
+    maxIter :: Int
+
+    Returns
+    ----------
+    Returns a NumPy array where F is minimal
+    """
+    gradF = F.diff()
+    x1 = x0
+    φ = F(x1)
+    F.history.append(x1)
+    for m in range(maxIter):
+        # print(f"m:{m}")
+        χ = x0
+        g = gradF(x1)
+        for n in range(maxIter):
+            # print(f"n:{n}")
+            x1 = x0 - 1/γ*g
+            ψ = F(x1)
+            if ψ <= φ + np.dot(g,x1-x0)+γ/2*np.linalg.norm(x1-x0)**2:
+                x0, φ, γ = x1, ψ, ρ*γ
+                break
+            else:
+                γ = σ*γ
+        F.history.append(x1)
+        if np.linalg.norm(x1-χ) <= TOL or np.linalg.norm(g) <= TOL:
+            break
+    return x1
 
 
 class Lagrange(Plottable):
@@ -347,9 +370,12 @@ class DescentLagrange(Plottable):
                 s = s + (self.pwf(x)-p(x))**2
             return const*s
 
+        cp = AltDiff(cost, None, None)
+
         startNodes = equiX(self.min_dom, self.max_dom, self.n)
-        bestNodes = gradientDescent(cost, startNodes)
+        bestNodes = gradientDescent(cp, startNodes)
         self.function = self.inter(bestNodes)
+        hs = cp.history
 
     @functools.lru_cache(256)
     def pwf(self, x):
@@ -1001,28 +1027,32 @@ def chebyX(start, end, steps):
 # plt.show()
 
 
-# #Task iv)
-# # ---------------------------------
-# # Creating the plot with the interpolations, bot legacy method and true method
-# # d = ErrorDescentLegacy(a, 0, 1)
-# e = ErrorDescent(a, 0, 1)
-# a = ErrorLagrange(a, 0, 1)
-# b = ErrorLagrange(a, 0, 1, v = "Cheby")
-# plt.figure()
-# plt.axes(xlabel = "n - nodes", ylabel = "error")
-# # d.plot()
-# e.plot()
-# a.plot2()
-# b.plot2()
-# plt.show() 
+#Task iv)
+# ---------------------------------
+# Creating the plot with the interpolations, bot legacy method and true method
+# d = ErrorDescentLegacy(a, 0, 1)
+st = time.time()
+e = ErrorDescent(a, 0, 1)
+print(f"time:{time.time()-st}")
+a = ErrorLagrange(a, 0, 1)
+b = ErrorLagrange(a, 0, 1, v = "Cheby")
+plt.figure()
+plt.axes(xlabel = "n - nodes", ylabel = "error")
+# d.plot()
+e.plot()
+a.plot2()
+b.plot2()
+plt.show() 
 
 
-# Creating a plot of interpolated with error descent
-ps = equiNode(0, 1, 20, a)
-xs = equiX(0,1,20)
-c = DescentLagrangeLegacy(a, xs, 10)
-# d = DescentLagrange(ps, 10)
-print(c)
+# # # Creating a plot of interpolated with error descent
+# st = time.time()
+# ps = equiNode(0, 1, 100, a)
+# # xs = equiX(0,1,20)
+# c = DescentLagrange(ps, 10)
+# # # d = DescentLagrange(ps, 10)
+# print(f"time:{time.time()-st}")
+# print(c)
 
 
 #task v
