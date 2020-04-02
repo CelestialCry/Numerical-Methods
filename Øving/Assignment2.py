@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import autograd.numpy as np
+from autograd.core import primitive
 from autograd import jacobian, grad
 from operator import mul
 from functools import reduce
@@ -59,7 +60,7 @@ def meanValDiff(f, a, b):
     """
     return (f(b)-f(a))/np.linalg.norm(b-a)
 
-def meanValGrad(f, x, h = 1e-4):
+def meanValGrad(f, x, h = 1e-14):
     """
     Gradient based on the mean value theorem
     """
@@ -152,13 +153,20 @@ class Plottable():
 
 class AltDiff(Plottable):
 
-    def __init__(self, f, start, end):
+    __slots__ = ["grad"]
+
+    def __init__(self, f, start, end, newDiff = None):
         super().__init__(f, start, end)
+        if newDiff == None:
+            self.grad = self.diff
+        else:
+            self.grad = newDiff
 
     def diff(self):
         return lambda x: meanValGrad(self.function, x, h = 1e-4)
 
-def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000):
+def gradientDescent(F, x0, γ = 10, ρ = 0.7, σ = 1.3
+, TOL = 1e-7, maxIter = 100):
     """
     An implementation of gradient descent with backtracking
 
@@ -181,7 +189,8 @@ def gradientDescent(F, x0, γ = 1, ρ = 0.5, σ = 2, TOL = 1e-14, maxIter = 1000
     ----------
     Returns a NumPy array where F is minimal
     """
-    gradF = F.diff()
+    print(len(x0))
+    gradF = F.grad
     x1 = x0
     φ = F(x1)
     F.history.append(x1)
@@ -240,11 +249,15 @@ class Lagrange(Plottable):
         xs, ys = self.sep()
         self.max_dom, self.min_dom = max(xs), min(xs)
         # Everything above should make sense, everything below is a clusterfuck
-        if len(xs) == 1:
-            self.function = lambda x: ys[0]
-        else:
-            λj = lambda j, ls, x: ys[j] * reduce(mul, [(x - arg) / (ls[j] - arg) for arg in ls if ls[j] != arg])
-            self.function = lambda x: sum([λj(i, xs, x) for i in range(len(xs))])
+        # @primitive
+        def inter(ls, x):
+            if len(ls) == 1:
+                return ys[0]
+            else:
+                λj = lambda j, ls, x: ys[j] * reduce(mul, [(x - arg) / (ls[j] - arg) for arg in ls if ls[j] != arg])
+                return sum([λj(i, ls, x) for i in range(len(ls))])
+        
+        self.function = inter
 
     def sep(self):
         """
@@ -362,6 +375,7 @@ class DescentLagrange(Plottable):
         self.xsKnown, self.ysKnown = np.array([x for x,_ in known]), np.array([y for _,y in known])
         self.min_dom, self.max_dom, self.N = min(self.xsKnown), max(self.xsKnown), len(self.xsKnown)
 
+        # @primitve
         def cost(xs):
             p = self.inter(xs)
             const = (self.max_dom-self.min_dom)/self.N
@@ -369,6 +383,17 @@ class DescentLagrange(Plottable):
             for x in self.xsKnown:
                 s = s + (self.pwf(x)-p(x))**2
             return const*s
+
+        # def cost_vjp(ans, x):
+        #     pass
+
+        # def costDiff(xs):
+        #     p = self.inter(xs)
+        #     const = -2*(self.max_dom-self.min_dom)/self.N
+        #     s = 0
+        #     for x in self.xsKnown:
+        #         s = s + (self.pwf(x)-p(x))*meanValGrad(self.inter, xs)(x)
+        #     return const*s
 
         cp = AltDiff(cost, None, None)
 
@@ -429,13 +454,18 @@ class DescentLagrangeLegacy(Plottable):
             p = self.inter(xs)
             return (self.max_dom-self.min_dom)/self.N*sum([(self.f(x)-p(x))**2 for x in self.xsKnown])
 
-        bestNodes = gradientDescent(cost, equiX(self.min_dom, self.max_dom, self.n), 10)
+        cc = AltDiff(cost, 0, 1)
+
+        bestNodes = gradientDescent(cc, equiX(self.min_dom, self.max_dom, self.n), 10)
         self.function = self.inter(bestNodes)
 
     def inter(self, xs):
         ys = self.f(xs)
         λj = lambda j, ls, x: ys[j]*reduce(mul, [(x-arg)/(ls[j]-arg) for arg in ls if ls[j] != arg])
         return lambda x: sum([λj(i, xs, x) for i in range(len(xs))])
+
+    def diff(self):
+        return lambda x: meanValGrad(self.f, x, 1e-7)
 
 def equiX(a,b,N):
     return np.array([a+i*(b-a)/N for i in range(N+1)])
@@ -601,12 +631,12 @@ class ErrorCompare(Plottable):
 
     def plot(self, *args, **kwargs):
         '''Ploting the 2-norm and sup-norm as a function of the number of interpolations points used.'''
-        plt.semilogy(range(1, self.N + 1), self.sqErr, *args, label="Square Error", *kwargs)
-        plt.semilogy(range(1, self.N + 1), self.supErr, *args, label="Sup Error", *kwargs)
+        plt.semilogy(range(2, self.N + 1), self.sqErr, *args, label="Square Error", *kwargs)
+        plt.semilogy(range(2, self.N + 1), self.supErr, *args, label="Sup Error", *kwargs)
         plt.legend()
 
     def plot2(self, *args, **kwargs):
-        plt.semilogy(range(1, self.N + 1), self.sqErr, *args, label=f"Square Error with {self.v}nodes", *kwargs)
+        plt.semilogy(range(2, self.N+1), self.sqErr, *args, label=f"Square Error with {self.v}nodes", *kwargs)
         plt.legend()
 
 
@@ -646,7 +676,7 @@ class ErrorLagrange(ErrorCompare):
         super().__init__(function, mi, ma, n)
         self.v = v
         self.N = n
-        self.sqErr, self.supErr = [self.err2(self.N, m) for m in range(1, n+1)], [self.errSup(self.N, m) for m in range(1, n+1)]
+        self.sqErr, self.supErr = [self.err2(self.N, m) for m in range(1, n)], [self.errSup(self.N, m) for m in range(1, n)]
 
     @functools.lru_cache(256)
     def genny(self, steps=None):
@@ -777,7 +807,7 @@ class ErrorDescent(ErrorCompare):
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui = equiNode(mi, ma, N, f)
         self.v = "Equi"
-        self.sqErr = [self.err2(self.N, k+1) for k in range(20)]
+        self.sqErr = [self.err2(self.N, k) for k in range(1, 20)]
 
 
     def genny(self, steps = 1):
@@ -794,7 +824,7 @@ class ErrorDescent(ErrorCompare):
         if self.v == "Equi":
             return DescentLagrange(self.knownEqui, steps)
         elif self.v == "Cheby":
-            return DescentLagrange(self.function, self.knownCheby, steps)
+            return DescentLagrange(self.knownCheby, steps)
         return None
 
     def plot(self, *args, **kwargs):
@@ -807,7 +837,7 @@ class ErrorDescent(ErrorCompare):
         **kwargs :: **kwargs
             keywordarguments from plt.plot()
         """
-        plt.semilogy(range(1, 21), self.sqErr, *args, label="Descent - Square Error", *kwargs)
+        plt.semilogy(range(2, 21), self.sqErr, *args, label="Descent - Square Error", *kwargs)
         plt.legend()
 
 class ErrorDescentLegacy(ErrorCompare):
@@ -851,7 +881,7 @@ class ErrorDescentLegacy(ErrorCompare):
         self.function, self.min_dom, self.max_dom, self.N = f, mi, ma, N
         self.knownEqui = equiX(mi, ma, N)
         self.v = "Equi"
-        self.sqErr = [self.err2(self.N, k+1) for k in range(20)]
+        self.sqErr = [self.err2(self.N, k) for k in range(1,20)]
 
 
     def genny(self, steps = 1):
@@ -881,7 +911,7 @@ class ErrorDescentLegacy(ErrorCompare):
         **kwargs :: **kwargs
             keywordarguments from plt.plot()
         """
-        plt.semilogy(range(1, 21), self.sqErr, *args, label="Descent Legacy - Square Error", *kwargs)
+        plt.semilogy(range(2, 21), self.sqErr, *args, label="Descent Legacy - Square Error", *kwargs)
         plt.legend()
 
 class ErrRBF(ErrorCompare):
@@ -973,17 +1003,17 @@ def chebyX(start, end, steps):
 
 # # Task i)
 # # ---------------------------------
-# # start = time.time()
-# # plt.figure()
-# # plt.axes(xlabel = "x", ylabel = "y")
-# # r = Lagrange(chebyNode(-5, 5, 10, runge))
-# # r.plot(label = "Cheby")
-# # p = Lagrange(equiNode(-5, 5, 10, runge))
-# # p.plot(label = "Equi")
-# # plt.legend()
-# # stop = time.time()
-# # plt.show()
-# # print(f"Time taken: {stop - start}")
+# start = time.time()
+# plt.figure()
+# plt.axes(xlabel = "x", ylabel = "y")
+# r = Lagrange(chebyNode(-5, 5, 10, runge))
+# r.plot(label = "Cheby")
+# p = Lagrange(equiNode(-5, 5, 10, runge))
+# p.plot(label = "Equi")
+# plt.legend()
+# stop = time.time()
+# plt.show()
+# print(f"Time taken: {stop - start}")
 
 
 
@@ -1027,37 +1057,42 @@ def chebyX(start, end, steps):
 # plt.show()
 
 
-# #Task iv)
-# # ---------------------------------
-# # Creating the plot with the interpolations, bot legacy method and true method
-# # d = ErrorDescentLegacy(a, 0, 1)
-# st = time.time()
-# e = ErrorDescent(a, 0, 1)
-# print(f"time:{time.time()-st}")
-# a = ErrorLagrange(a, 0, 1)
-# b = ErrorLagrange(a, 0, 1, v = "Cheby")
-# plt.figure()
-# plt.axes(xlabel = "n - nodes", ylabel = "error")
-# # d.plot()
-# e.plot()
-# a.plot2()
-# b.plot2()
-# plt.show() 
+#Task iv)
+# ---------------------------------
+# Creating the plot with the interpolations, bot legacy method and true method
+st = time.time()
+d = ErrorDescentLegacy(a, 0, 1, 100)
+e = ErrorDescent(a, 0, 1, 100)
+print(f"time:{time.time()-st}")
+q = ErrorLagrange(a, 0, 1)
+r = ErrorLagrange(a, 0, 1, v = "Cheby")
+plt.figure()
+plt.axes(xlabel = "n - nodes", ylabel = "error")
+d.plot()
+e.plot()
+q.plot2()
+r.plot2()
+plt.show() 
 
+# ls = equiX(0,1,1000)
+# st = time.time()
+# d = DescentLagrangeLegacy(a, ls, 20)
+# print(time.time()-st)
+# print(d)
 
 # # Creating a plot of interpolated with error descent
-sts = []
-for i in range(5,21):
-    st = time.time()
-    ps = equiNode(0, 1, 1000, a)
-    c = DescentLagrange(ps, i)
-    st = time.time() - st
-    sts.append(st)
+# sts = []
+# for i in range(5,21):
+#     st = time.time()
+#     ps = equiNode(0, 1, 1000, a)
+#     c = DescentLagrange(ps, i)
+#     st = time.time() - st
+#     sts.append(st)
 
-with open("tests.txt","w") as file:
-    for data in sts:
-        file.write(f"data{}")
-    pass
+# with open("tests.txt","w") as file:
+#     for data in sts:
+#         file.write(f"data{}")
+#     pass
 
 #task v
 # ---------------------------------
