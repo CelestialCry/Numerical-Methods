@@ -1,5 +1,5 @@
 import time
-import functools as f
+import functools as func
 import matplotlib.pyplot as plt
 import autograd as aut
 import autograd.numpy as np
@@ -67,28 +67,28 @@ class Plottable():
         return self.function(*args)
 
     def diff(self):
-        return jacobian(self.function)
+        return grad(self.function)
 
 # Gradient Descent
 #-----
-def gradientDescent(F, x0, γ = 10, ρ = 0.7, σ = 1.3, TOL = 1e-7, maxIter = 100):
+def gradientDescent(F, x0, γ = 10, ρ = 0.8, σ = 1.7, TOL = 1e-7, maxIter = 100):
     gradF = F.gradient
     x1 = x0
     φ = F(x1)
-    F.history.append(x1)
+    F.history.append(φ)
     for m in range(maxIter):
-        χ = x0
+        # χ = x0
         g = gradF(x1)
-        for n in range(maxIter):
+        for n in range(200):
             x1 = x0 - 1/γ*g
             ψ = F(x1)
             if ψ <= φ + np.dot(g,x1-x0)+γ/2*np.linalg.norm(x1-x0)**2:
                 x0, φ, γ = x1, ψ, ρ*γ
                 break
             else:
-                γ = σ*γ
-        F.history.append(x1)
-        if np.linalg.norm(x1-χ) <= TOL or np.linalg.norm(g) <= TOL:
+                γ *= σ
+        F.history.append(φ)
+        if np.linalg.norm(g) <= TOL: # or np.linalg.norm(g) <= TOL:
             break
     return x1
 
@@ -118,7 +118,7 @@ def lagrangify(ps):
     if len(ps) == 1:
         return lambda x : ps[0][1]
     else:
-        λj = lambda j, ls, x: ps[j][1] * f.reduce(mul, [(x - arg) / (ls[j] - arg) for arg in ls if ls[j] != arg])
+        λj = lambda j, ls, x: ps[j][1] * func.reduce(mul, [1] + [(x - arg) / (ls[j] - arg) for arg in ls if ls[j] != arg])
         return lambda x : sum([λj(i, [χ for χ,_ in ps], x) for i in range(len(ps))])
 
 class LagrangePol(Plottable):
@@ -176,23 +176,107 @@ def optLagrangify(psKnown, xs):
         ps = [(x,f(x)) for x in ks]
         k = (b-a)/N
         s = 0
+        p = lagrangify(ps)
         for x,y in psKnown:
-            s = s + (y-lagrangify(ps)(x))**2
+            s = s + (y-p(x))**2
         return k*s
 
-    cp = Plottable(cost, None, None, None)
+    def lagGrad(i, ks, x):
+        partOne = grad(f)(ks[i])*func.reduce(mul, [1] + [(x - ks[k])/(ks[i]-ks[k]) for k in range(len(ks)) if i != k])
+        partTwo = f(ks[i])*sum([(ks[k]-x)/((ks[i]-ks[k])**2)*func.reduce(mul, [1] + [(x-ks[j])/(ks[i]-ks[j]) for j in range(len(ks)) if j != i and j != k]) for k in range(len(ks)) if k != i])
+        partThree = sum([f(ks[k])*(x-ks[k])/((ks[k]-ks[i])**2)*func.reduce(mul, [1] + [(x-ks[j])/(ks[k]-ks[j]) for j in range(len(ks)) if k != j and j != i]) for k in range(len(ks)) if k != i])
+        return partOne + partTwo + partThree
+
+    def gradient(ks):
+        ps = [(x,f(x)) for x in ks]
+        k = 2*(a-b)/N
+        s = np.full(ks.shape, 0)
+        p = lagrangify(ps)
+        dp = lambda x: np.array([lagGrad(i, ks, x) for i in range(len(ks))])
+        for x,y in psKnown:
+            dps = dp(x)
+            c = y-p(x)
+            s = s + c*dps
+        return k*s
+
+    # print(grad(cost)(equiX(a,b,10)))
+    # print(gradient(equiX(a,b,10)))
+
+    cp = Plottable(cost, None, None, gradient)
+
 
     bNodes = gradientDescent(cp, np.array(xs))
     pbNodes = [(x,f(x)) for x in bNodes]
-    return lagrangify(pbNodes)
 
-class OptLangrangePol(Plottable):
+    # print(cp.history)
+    
+    # plt.figure()
+    # plt.plot(cp.history)
+    # plt.show()
+    
+    return lagrangify(pbNodes), cp.history
+
+class OptLagrangePol(Plottable):
     
     def __init__(self, psKnown, xStart):
         ls = [x for x,_ in psKnown]
         start, end = min(ls), max(ls)
-        function = optLagrangify(psKnown, xStart)
+        function, hs = optLagrangify(psKnown, xStart)
         super().__init__(function, start, end, None)
+        self.history = hs
+
+#Opt Lagrange with known function
+#-----
+def optLagrangifyLeg(f, psKnown, xs):
+
+    ls = [x for x,_ in psKnown]
+    a, b, N = min(ls), max(ls), len(ls)
+
+    def cost(ks):
+        ps = [(x,f(x)) for x in ks]
+        k = (b-a)/N
+        s = 0
+        p = lagrangify(ps)
+        for x,y in psKnown:
+            s = s + (y-p(x))**2
+        return k*s
+
+    def lagGrad(i, ks, x):
+        partOne = grad(f)(ks[i])*func.reduce(mul, [1] + [(x - ks[k])/(ks[i]-ks[k]) for k in range(len(ks)) if i != k])
+        partTwo = f(ks[i])*sum([(ks[k]-x)/((ks[i]-ks[k])**2)*func.reduce(mul, [1] + [(x-ks[j])/(ks[i]-ks[j]) for j in range(len(ks)) if j != i and j != k]) for k in range(len(ks)) if k != i])
+        partThree = sum([f(ks[k])*(x-ks[k])/((ks[k]-ks[i])**2)*func.reduce(mul, [1] + [(x-ks[j])/(ks[k]-ks[j]) for j in range(len(ks)) if k != j and j != i]) for k in range(len(ks)) if k != i])
+        return partOne + partTwo + partThree
+
+    def gradient(ks):
+        ps = [(x,f(x)) for x in ks]
+        k = 2*(a-b)/N
+        s = np.full(ks.shape, 0)
+        p = lagrangify(ps)
+        dp = lambda x: np.array([lagGrad(i, ks, x) for i in range(len(ks))])
+        for x,y in psKnown:
+            dps = dp(x)
+            c = y-p(x)
+            s = s + c*dps
+        return k*s
+
+    cp = Plottable(cost, None, None, gradient)
+
+    # plt.figure()
+    # plt.plot(cp.history)
+    # plt.show()
+
+    bNodes = gradientDescent(cp, np.array(xs))
+    pbNodes = [(x,f(x)) for x in bNodes]
+    return lagrangify(pbNodes), cp.history
+
+class OptLagrangePolLeg(Plottable):
+        
+    def __init__(self, f, psKnown, xStart):
+        ls = [x for x,_ in psKnown]
+        start, end = min(ls), max(ls)
+        function, hs = optLagrangifyLeg(f, psKnown, xStart)
+        super().__init__(function, start, end, None)
+        self.history = hs
 
 #Error Calculations
 #-----
@@ -203,7 +287,7 @@ class ErrorCompare(Plottable):
     def __init__(self, function, mi, ma, n=10):
         super().__init__(function, mi, ma)
 
-    @f.lru_cache(256)
+    @func.lru_cache(256)
     def genny(self, steps=None):
         return None
 
@@ -222,7 +306,7 @@ class ErrorCompare(Plottable):
         plt.legend()
 
     def plot2(self, *args, **kwargs):
-        plt.semilogy(range(1, self.N+1), self.sqErr, *args, label=f"Square Error with {self.v}nodes", *kwargs)
+        plt.semilogy(range(1, self.N+1), self.sqErr, *args, label=f"Square Error with {self.nodes}nodes", *kwargs)
         plt.legend()
 
 #Error for Lagrange Polynomials
@@ -237,7 +321,7 @@ class ErrorLagrange(ErrorCompare):
         self.N = n
         self.sqErr, self.supErr = [self.err2(n, m) for m in range(1, n+1)], [self.errSup(n, m) for m in range(1, n+1)]
 
-    @f.lru_cache(256)
+    @func.lru_cache(256)
     def genny(self, steps=None):
         if steps == None:
             steps = self.N
@@ -260,7 +344,7 @@ class ErrorSpline(ErrorCompare):
             self.extras = [[self.errSup(self.N, (k+2, np)) for k in range(self.K)] for np in range(1,11)]
         self.supErr = [self.errSup(self.N, (k+2, self.N)) for k in range(self.K)]  # Fiks dette Thomas!
 
-    @f.lru_cache(256)
+    @func.lru_cache(256)
     def genny(self, steps=None):
         intervals = np.linspace(self.start, self.end, steps[0])
         intervals = [(intervals[i], intervals[i + 1]) for i in range(len(intervals) - 1)]
@@ -288,21 +372,45 @@ class ErrorOpt(ErrorCompare):
         self.function, self.start, self.end, self.N = f, mi, ma, N
         self.knownEqui = equiNode(mi, ma, N, f)
         self.v = "Equi"
-        self.sqErr = [self.err2(self.N, k) for k in range(1, 21)]
+        self.sqErr = [self.err2(self.N, k) for k in range(1, 11)]
 
 
     def genny(self, steps = 1):
         xs = equiX(self.start, self.end, steps)
         if self.v == "Equi":
-            return OptLangrangePol(self.knownEqui, xs)
+            return OptLagrangePol(self.knownEqui, xs)
         # elif self.v == "Cheby":
         #     return OptLangrangePol(self.knownCheby, steps)
         return None
 
     def plot(self, *args, **kwargs):
-        plt.semilogy(range(1, 21), self.sqErr, *args, label="Descent - Square Error", *kwargs)
+        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent - Square Error", *kwargs)
         plt.legend()
-        
+
+#Error of optimized Lagrange Polynomials with known function
+#-----
+
+class ErrorOptLeg(ErrorCompare):
+    __slots__ = ["v", "knownEqui"]
+
+    def __init__(self, f, mi, ma, N = 1000, v = "Equi"):
+        self.function, self.start, self.end, self.N = f, mi, ma, N
+        self.knownEqui = equiNode(mi, ma, N, f)
+        self.v = "Equi"
+        self.sqErr = [self.err2(self.N, k) for k in range(1, 11)]
+
+
+    def genny(self, steps = 1):
+        xs = equiX(self.start, self.end, steps)
+        if self.v == "Equi":
+            return OptLagrangePolLeg(self.function, self.knownEqui, xs)
+        # elif self.v == "Cheby":
+        #     return OptLangrangePol(self.knownCheby, steps)
+        return None
+
+    def plot(self, *args, **kwargs):
+        plt.semilogy(range(1, 11), self.sqErr, *args, label="Descent - Square Error", *kwargs)
+        plt.legend()
 #Tests
 #-----
 #This is supposed to be defined on [0,1]
@@ -313,11 +421,14 @@ def a(x):
 def b(x):
     return np.exp(3 * x) * np.sin(2 * x)
 
+def runge(x):
+    return 1 / (x ** 2 + 1)
+
 st = time.time()
-p = ErrorLagrange(a, 0, 1)
+p = ErrorLagrange(runge, -5, 5, n = 10)
 print(f"lagrange time:{time.time()-st}")
 st = time.time()
-q = ErrorLagrange(a, 0, 1, nodes = "Cheby")
+q = ErrorLagrange(runge, -5, 5, n = 10, nodes = "Cheby")
 print(f"lagrange time:{time.time()-st}")
 # print(p)
 
@@ -332,15 +443,19 @@ print(f"lagrange time:{time.time()-st}")
 # print(p)
 
 # st = time.time()
-# r = OptLangrangePol(equiNode(0, 1, 100, a), equiX(0, 1, 10))
+# r = OptLagrangePol(equiNode(-5, 5, 100, runge), equiX(-5, 5, 10))
 # print(f"optimal lagrange time:{time.time()-st}")
 # print(r)
 
 st = time.time()
-r  = ErrorOpt(a, 0, 1, 100)
+r  = ErrorOpt(runge, -5, 5, 1000)
+print(f"Opt time:{time.time()-st}")
+st = time.time()
+s  = ErrorOptLeg(runge, -5, 5, 1000)
 print(f"Opt time:{time.time()-st}")
 plt.figure()
 p.plot2('r')
 q.plot2('b')
 r.plot()
+s.plot()
 plt.show()
